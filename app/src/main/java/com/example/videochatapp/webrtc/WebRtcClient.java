@@ -1,6 +1,7 @@
 package com.example.videochatapp.webrtc;
 
 import android.content.Context;
+import android.util.Log;
 import org.webrtc.*;
 import org.webrtc.audio.JavaAudioDeviceModule;
 import java.util.ArrayList;
@@ -45,10 +46,22 @@ public class WebRtcClient {
         PeerConnectionFactory.initialize(initializationOptions);
 
         // Create JavaAudioDeviceModule for proper audio playout/record
-        JavaAudioDeviceModule audioDeviceModule = JavaAudioDeviceModule.builder(context)
-                .setUseHardwareAcousticEchoCanceler(true)
-                .setUseHardwareNoiseSuppressor(true)
-                .createAudioDeviceModule();
+        JavaAudioDeviceModule audioDeviceModule;
+        try {
+            audioDeviceModule = JavaAudioDeviceModule.builder(context)
+                    .setUseHardwareAcousticEchoCanceler(true)
+                    .setUseHardwareNoiseSuppressor(true)
+                    .createAudioDeviceModule();
+        } catch (Throwable t) {
+            Log.w("WebRtcClient", "Failed to create JavaAudioDeviceModule with hardware effects, falling back to default", t);
+            try {
+                audioDeviceModule = JavaAudioDeviceModule.builder(context)
+                        .createAudioDeviceModule();
+            } catch (Throwable t2) {
+                Log.e("WebRtcClient", "Failed to create any JavaAudioDeviceModule", t2);
+                audioDeviceModule = null;
+            }
+        }
 
         // Create PeerConnectionFactory
         PeerConnectionFactory.Options options = new PeerConnectionFactory.Options();

@@ -89,9 +89,12 @@ public class CallActivity extends AppCompatActivity implements WebRtcClient.WebR
     }
 
     private String getRecordingsDirectory() {
-        File dir = new File("/sdcard/Vypeensoft/Video_Caller/recordings");
+        File dir = null;
         boolean isWritable = false;
+
+        // Try external public SD card directory first
         try {
+            dir = new File("/sdcard/Vypeensoft/Video_Caller/recordings");
             if (!dir.exists()) {
                 dir.mkdirs();
             }
@@ -103,16 +106,43 @@ public class CallActivity extends AppCompatActivity implements WebRtcClient.WebR
                     isWritable = true;
                 }
             }
-        } catch (Exception e) {
-            Log.e("CallActivity", "Failed to write to external SD card directory", e);
+        } catch (Throwable t) {
+            Log.e("CallActivity", "Failed to write to external SD card directory", t);
         }
 
+        // Try app external sandbox directory next
         if (!isWritable) {
-            Log.w("CallActivity", "External SD card directory is not writable. Falling back to sandbox.");
-            dir = new File(getExternalFilesDir(null), "Vypeensoft/Video_Caller/recordings");
-            dir.mkdirs();
+            try {
+                Log.w("CallActivity", "External SD card directory not writable. Trying sandbox external files dir.");
+                File externalDir = getExternalFilesDir(null);
+                if (externalDir != null) {
+                    dir = new File(externalDir, "Vypeensoft/Video_Caller/recordings");
+                    if (!dir.exists()) {
+                        dir.mkdirs();
+                    }
+                    if (dir.exists()) {
+                        isWritable = true;
+                    }
+                }
+            } catch (Throwable t) {
+                Log.e("CallActivity", "Failed to write to external sandbox directory", t);
+            }
         }
-        return dir.getAbsolutePath();
+
+        // Fallback to internal storage (guaranteed to be writable)
+        if (!isWritable) {
+            try {
+                Log.w("CallActivity", "External storage not available. Falling back to internal storage.");
+                dir = new File(getFilesDir(), "Vypeensoft/Video_Caller/recordings");
+                if (!dir.exists()) {
+                    dir.mkdirs();
+                }
+            } catch (Throwable t) {
+                Log.e("CallActivity", "Failed to write to internal storage directory", t);
+            }
+        }
+
+        return dir != null ? dir.getAbsolutePath() : getFilesDir().getAbsolutePath();
     }
 
     private void initWebRtcAndSignaling() {
