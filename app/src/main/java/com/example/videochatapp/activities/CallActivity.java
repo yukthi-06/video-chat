@@ -1,5 +1,7 @@
 package com.example.videochatapp.activities;
 
+import android.content.Context;
+import android.media.AudioManager;
 import android.os.Bundle;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -25,6 +27,7 @@ public class CallActivity extends AppCompatActivity implements WebRtcClient.WebR
     private WebRtcClient webRtcClient;
     private SignalingClient signalingClient;
     private EglBase eglBase;
+    private AudioManager audioManager;
 
     private boolean isMuted = false;
     private boolean isVideoDisabled = false;
@@ -38,6 +41,13 @@ public class CallActivity extends AppCompatActivity implements WebRtcClient.WebR
 
         roomId = getIntent().getStringExtra(EXTRA_ROOM_ID);
         isCreator = getIntent().getBooleanExtra(EXTRA_IS_CREATOR, false);
+
+        // Configure Audio Manager for Call routing
+        audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+        if (audioManager != null) {
+            audioManager.setMode(AudioManager.MODE_IN_COMMUNICATION);
+            audioManager.setSpeakerphoneOn(true);
+        }
 
         initViews();
         setupRenderers();
@@ -169,6 +179,10 @@ public class CallActivity extends AppCompatActivity implements WebRtcClient.WebR
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        if (audioManager != null) {
+            audioManager.setMode(AudioManager.MODE_NORMAL);
+            audioManager.setSpeakerphoneOn(false);
+        }
         if (webRtcClient != null) {
             webRtcClient.close();
         }

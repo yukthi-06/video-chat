@@ -42,6 +42,12 @@ public class WebRtcClient {
                         .createInitializationOptions();
         PeerConnectionFactory.initialize(initializationOptions);
 
+        // Create JavaAudioDeviceModule for proper audio playout/record
+        JavaAudioDeviceModule audioDeviceModule = JavaAudioDeviceModule.builder(context)
+                .setUseHardwareAcousticEchoCanceler(true)
+                .setUseHardwareNoiseSuppressor(true)
+                .createAudioDeviceModule();
+
         // Create PeerConnectionFactory
         PeerConnectionFactory.Options options = new PeerConnectionFactory.Options();
         DefaultVideoEncoderFactory defaultVideoEncoderFactory = new DefaultVideoEncoderFactory(
@@ -50,6 +56,7 @@ public class WebRtcClient {
 
         factory = PeerConnectionFactory.builder()
                 .setOptions(options)
+                .setAudioDeviceModule(audioDeviceModule)
                 .setVideoEncoderFactory(defaultVideoEncoderFactory)
                 .setVideoDecoderFactory(defaultVideoDecoderFactory)
                 .createPeerConnectionFactory();
