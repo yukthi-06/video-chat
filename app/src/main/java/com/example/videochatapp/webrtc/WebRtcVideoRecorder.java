@@ -20,9 +20,9 @@ public class WebRtcVideoRecorder implements VideoSink {
     private static final int BITRATE = 1500000; // 1.5 Mbps
 
     private final String filePath;
-    private final int width;
-    private final int height;
     private final EglBase.Context sharedContext;
+    private int width;
+    private int height;
 
     private MediaCodec mediaCodec;
     private MediaMuxer mediaMuxer;
@@ -32,24 +32,26 @@ public class WebRtcVideoRecorder implements VideoSink {
     private VideoFrameDrawer frameDrawer;
 
     private int videoTrackIndex = -1;
+    private boolean isStartRequested = false;
     private boolean isRecording = false;
     private boolean isMuxerStarted = false;
     private Thread encoderThread;
 
-    public WebRtcVideoRecorder(String filePath, int width, int height, EglBase.Context sharedContext) {
+    public WebRtcVideoRecorder(String filePath, EglBase.Context sharedContext) {
         this.filePath = filePath;
-        // H.264 encoders prefer width/height to be multiples of 16
-        this.width = (width / 16) * 16;
-        this.height = (height / 16) * 16;
         this.sharedContext = sharedContext;
     }
 
     public synchronized void start() {
-        if (isRecording) {
-            Log.w(TAG, "Recorder is already running");
+        if (isRecording || isStartRequested) {
+            Log.w(TAG, "Recorder is already running or start has been requested");
             return;
         }
+        isStartRequested = true;
+        Log.d(TAG, "Start requested. Recording initialization deferred until first frame arrives.");
+    }
 
+    private void startInternal() {
         File file = new File(filePath);
         File parentDir = file.getParentFile();
         if (parentDir != null && !parentDir.exists()) {
@@ -98,7 +100,7 @@ public class WebRtcVideoRecorder implements VideoSink {
             encoderThread = new Thread(this::drainEncoder, "VideoEncoderThread");
             encoderThread.start();
 
-            Log.d(TAG, "Video recorder started for: " + filePath);
+            Log.d(TAG, "Video recorder started dynamically for: " + filePath + " (" + width + "x" + height + ")");
         } catch (Throwable t) {
             Log.e(TAG, "Failed to initialize recorder", t);
             releaseCodec();
@@ -120,9 +122,31 @@ public class WebRtcVideoRecorder implements VideoSink {
 
     @Override
     public synchronized void onFrame(VideoFrame frame) {
-        if (!isRecording || recorderEglBase == null) {
+        if (!isStartRequested) {
             return;
         }
+
+        if (!isRecording) {
+            // Retrieve actual video source dimensions (taking rotation into account)
+            int frameWidth = frame.getRotatedWidth();
+            int frameHeight = frame.getRotatedHeight();
+
+            // Encoders prefer dimension parameters to be multiples of 16
+            this.width = Math.max(16, (frameWidth / 16) * 16);
+            this.height = Math.max(16, (frameHeight / 16) * 16);
+
+            startInternal();
+
+            if (!isRecording) {
+                return; // startInternal failed
+            }
+        }
+
+        drawAndEncodeFrame(frame);
+    }
+
+    private void drawAndEncodeFrame(VideoFrame frame) {
+        if (recorderEglBase == null) return;
 
         // Save current EGL state of the thread to prevent breaking the camera thread's context
         android.opengl.EGLContext oldContext = android.opengl.EGL14.eglGetCurrentContext();
@@ -202,6 +226,7 @@ public class WebRtcVideoRecorder implements VideoSink {
     }
 
     public synchronized void stop() {
+        isStartRequested = false;
         if (!isRecording) {
             return;
         }

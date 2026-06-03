@@ -155,8 +155,8 @@ public class CallActivity extends AppCompatActivity implements WebRtcClient.WebR
         String localPath = recDir + "/" + timestamp + "_local.mp4";
         String remotePath = recDir + "/" + timestamp + "_remote.mp4";
 
-        localRecorder = new WebRtcVideoRecorder(localPath, 480, 640, eglBase.getEglBaseContext());
-        remoteRecorder = new WebRtcVideoRecorder(remotePath, 480, 640, eglBase.getEglBaseContext());
+        localRecorder = new WebRtcVideoRecorder(localPath, eglBase.getEglBaseContext());
+        remoteRecorder = new WebRtcVideoRecorder(remotePath, eglBase.getEglBaseContext());
 
         webRtcClient = new WebRtcClient(getApplicationContext(), this, eglBase.getEglBaseContext());
         webRtcClient.startLocalVideoCapture(localVideoView, eglBase.getEglBaseContext());
