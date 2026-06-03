@@ -57,6 +57,12 @@ public class WebRtcVideoRecorder implements VideoSink {
             Log.d(TAG, "Recording directory created: " + created);
         }
 
+        // Save current EGL state of the starting thread to prevent context leakage/blocking
+        android.opengl.EGLContext oldContext = android.opengl.EGL14.eglGetCurrentContext();
+        android.opengl.EGLDisplay oldDisplay = android.opengl.EGL14.eglGetCurrentDisplay();
+        android.opengl.EGLSurface oldDrawSurface = android.opengl.EGL14.eglGetCurrentSurface(android.opengl.EGL14.EGL_DRAW);
+        android.opengl.EGLSurface oldReadSurface = android.opengl.EGL14.eglGetCurrentSurface(android.opengl.EGL14.EGL_READ);
+
         try {
             // Configure MediaCodec
             MediaFormat format = MediaFormat.createVideoFormat(MIME_TYPE, width, height);
@@ -96,6 +102,19 @@ public class WebRtcVideoRecorder implements VideoSink {
         } catch (Throwable t) {
             Log.e(TAG, "Failed to initialize recorder", t);
             releaseCodec();
+        } finally {
+            // Restore original EGL state to the starting thread
+            try {
+                if (oldDisplay != android.opengl.EGL14.EGL_NO_DISPLAY && oldContext != android.opengl.EGL14.EGL_NO_CONTEXT) {
+                    android.opengl.EGL14.eglMakeCurrent(oldDisplay, oldDrawSurface, oldReadSurface, oldContext);
+                } else {
+                    // Detach context if none was current
+                    android.opengl.EGLDisplay defaultDisplay = android.opengl.EGL14.eglGetDisplay(android.opengl.EGL14.EGL_DEFAULT_DISPLAY);
+                    android.opengl.EGL14.eglMakeCurrent(defaultDisplay, android.opengl.EGL14.EGL_NO_SURFACE, android.opengl.EGL14.EGL_NO_SURFACE, android.opengl.EGL14.EGL_NO_CONTEXT);
+                }
+            } catch (Throwable t) {
+                Log.e(TAG, "Error restoring EGL context on start", t);
+            }
         }
     }
 
