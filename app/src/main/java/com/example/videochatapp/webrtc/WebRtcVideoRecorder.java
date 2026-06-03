@@ -105,6 +105,12 @@ public class WebRtcVideoRecorder implements VideoSink {
             return;
         }
 
+        // Save current EGL state of the thread to prevent breaking the camera thread's context
+        android.opengl.EGLContext oldContext = android.opengl.EGL14.eglGetCurrentContext();
+        android.opengl.EGLDisplay oldDisplay = android.opengl.EGL14.eglGetCurrentDisplay();
+        android.opengl.EGLSurface oldDrawSurface = android.opengl.EGL14.eglGetCurrentSurface(android.opengl.EGL14.EGL_DRAW);
+        android.opengl.EGLSurface oldReadSurface = android.opengl.EGL14.eglGetCurrentSurface(android.opengl.EGL14.EGL_READ);
+
         try {
             recorderEglBase.makeCurrent();
             // Clear OpenGL buffer
@@ -117,6 +123,19 @@ public class WebRtcVideoRecorder implements VideoSink {
             recorderEglBase.swapBuffers(frame.getTimestampNs());
         } catch (Throwable t) {
             Log.e(TAG, "Error rendering frame to encoder surface", t);
+        } finally {
+            // Restore original EGL state to the calling thread
+            try {
+                if (oldDisplay != android.opengl.EGL14.EGL_NO_DISPLAY && oldContext != android.opengl.EGL14.EGL_NO_CONTEXT) {
+                    android.opengl.EGL14.eglMakeCurrent(oldDisplay, oldDrawSurface, oldReadSurface, oldContext);
+                } else {
+                    // Detach context if none was current
+                    android.opengl.EGLDisplay defaultDisplay = android.opengl.EGL14.eglGetDisplay(android.opengl.EGL14.EGL_DEFAULT_DISPLAY);
+                    android.opengl.EGL14.eglMakeCurrent(defaultDisplay, android.opengl.EGL14.EGL_NO_SURFACE, android.opengl.EGL14.EGL_NO_SURFACE, android.opengl.EGL14.EGL_NO_CONTEXT);
+                }
+            } catch (Throwable t) {
+                Log.e(TAG, "Error restoring EGL context", t);
+            }
         }
     }
 
