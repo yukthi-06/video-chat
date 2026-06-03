@@ -35,7 +35,7 @@
             android:layout_height="96dp"
             app:cardCornerRadius="48dp"
             app:cardElevation="4dp"
-            app:cardBackgroundColor="?attr/primaryContainer"
+            app:cardBackgroundColor="?attr/colorPrimaryContainer"
             android:layout_marginTop="32dp"
             android:layout_marginBottom="24dp">
 
@@ -44,7 +44,7 @@
                 android:layout_height="48dp"
                 android:layout_gravity="center"
                 android:src="@android:drawable/presence_video_online"
-                app:tint="?attr/onPrimaryContainer" />
+                app:tint="?attr/colorOnPrimaryContainer" />
         </com.google.android.material.card.MaterialCardView>
 
         <TextView
