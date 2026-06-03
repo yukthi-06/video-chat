@@ -36,4 +36,7 @@ dependencies {
     
     // WebRTC Android Library
     implementation 'im.conversations.webrtc:webrtc-android:119.0.0'
+
+    // OkHttp for WebSocket connection
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
 }
