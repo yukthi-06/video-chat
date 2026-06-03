@@ -25,6 +25,7 @@ public class WebRtcClient {
     public interface WebRtcListener {
         void onLocalStreamReady(VideoTrack track);
         void onRemoteTrackAdded(VideoTrack track);
+        void onPeerDisconnected();
         void onIceCandidateGenerated(IceCandidate candidate);
         void onSdpGenerated(SessionDescription sdp);
     }
@@ -126,7 +127,12 @@ public class WebRtcClient {
             public void onSignalingChange(PeerConnection.SignalingState signalingState) {}
 
             @Override
-            public void onIceConnectionChange(PeerConnection.IceConnectionState iceConnectionState) {}
+            public void onIceConnectionChange(PeerConnection.IceConnectionState iceConnectionState) {
+                if (iceConnectionState == PeerConnection.IceConnectionState.DISCONNECTED ||
+                        iceConnectionState == PeerConnection.IceConnectionState.FAILED) {
+                    listener.onPeerDisconnected();
+                }
+            }
 
             @Override
             public void onIceConnectionReceivingChange(boolean b) {}

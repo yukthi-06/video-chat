@@ -127,6 +127,14 @@ public class CallActivity extends AppCompatActivity implements WebRtcClient.WebR
     }
 
     @Override
+    public void onPeerDisconnected() {
+        runOnUiThread(() -> {
+            Toast.makeText(CallActivity.this, "Call disconnected by peer", Toast.LENGTH_SHORT).show();
+            endCall();
+        });
+    }
+
+    @Override
     public void onIceCandidateGenerated(IceCandidate candidate) {
         signalingClient.sendIceCandidate(candidate);
     }
