@@ -53,16 +53,16 @@ jobs:
         if: success()
         run: |
           mv app/build/outputs/apk/debug/app-debug.apk \
-             app/build/outputs/apk/debug/MusPlay-${BUILD_TIMESTAMP}.apk
-          echo "Renamed APK → MusPlay-${BUILD_TIMESTAMP}.apk"
+             app/build/outputs/apk/debug/Video-Chat-${BUILD_TIMESTAMP}.apk
+          echo "Renamed APK → Video-Chat-${BUILD_TIMESTAMP}.apk"
 
       # ── Upload APK artifact ─────────────────────────────────────────────────
       - name: Upload debug APK
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: MusPlay-${{ env.BUILD_TIMESTAMP }}
-          path: app/build/outputs/apk/debug/MusPlay-${{ env.BUILD_TIMESTAMP }}.apk
+          name: Video-Chat-${{ env.BUILD_TIMESTAMP }}
+          path: app/build/outputs/apk/debug/Video-Chat-${{ env.BUILD_TIMESTAMP }}.apk
           if-no-files-found: error    # fail loudly if APK is missing
 
       # ── Write job summary ───────────────────────────────────────────────────
@@ -74,7 +74,7 @@ jobs:
           echo "| Item | Value |" >> $GITHUB_STEP_SUMMARY
           echo "|------|-------|" >> $GITHUB_STEP_SUMMARY
           echo "| APK | \`app/build/outputs/apk/debug/app-debug.apk\` |" >> $GITHUB_STEP_SUMMARY
-          echo "| Artifact | **MusPlay-$BUILD_TIMESTAMP** (download from the Summary tab above) |" >> $GITHUB_STEP_SUMMARY
+          echo "| Artifact | **Video-Chat-$BUILD_TIMESTAMP** (download from the Summary tab above) |" >> $GITHUB_STEP_SUMMARY
 
       # ── Upload build reports on failure (for easier debugging) ──────────────
       - name: Upload build reports on failure
