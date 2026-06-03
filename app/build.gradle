@@ -35,5 +35,5 @@ dependencies {
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
     
     // WebRTC Android Library
-    implementation 'org.webrtc:google-webrtc:1.0.32006'
+    implementation 'im.conversations.webrtc:webrtc-android:119.0.0'
 }
