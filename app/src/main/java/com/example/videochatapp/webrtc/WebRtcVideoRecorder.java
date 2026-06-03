@@ -74,7 +74,12 @@ public class WebRtcVideoRecorder implements VideoSink {
             mediaMuxer = new MediaMuxer(filePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
 
             // Configure EglHelper to draw frames to MediaCodec's input surface
-            recorderEglBase = EglBase.create(sharedContext, EglBase.CONFIG_RECORDABLE);
+            try {
+                recorderEglBase = EglBase.create(sharedContext, EglBase.CONFIG_RECORDABLE);
+            } catch (Throwable t) {
+                Log.w(TAG, "Failed to create EglBase with CONFIG_RECORDABLE, trying CONFIG_PLAIN", t);
+                recorderEglBase = EglBase.create(sharedContext, EglBase.CONFIG_PLAIN);
+            }
             recorderEglBase.createSurface(inputSurface);
             recorderEglBase.makeCurrent();
 
@@ -88,8 +93,8 @@ public class WebRtcVideoRecorder implements VideoSink {
             encoderThread.start();
 
             Log.d(TAG, "Video recorder started for: " + filePath);
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to initialize recorder", e);
+        } catch (Throwable t) {
+            Log.e(TAG, "Failed to initialize recorder", t);
             releaseCodec();
         }
     }
@@ -110,8 +115,8 @@ public class WebRtcVideoRecorder implements VideoSink {
             
             // Swap buffers and set the timestamp in nanoseconds
             recorderEglBase.swapBuffers(frame.getTimestampNs());
-        } catch (Exception e) {
-            Log.e(TAG, "Error rendering frame to encoder surface", e);
+        } catch (Throwable t) {
+            Log.e(TAG, "Error rendering frame to encoder surface", t);
         }
     }
 
@@ -151,8 +156,8 @@ public class WebRtcVideoRecorder implements VideoSink {
                     }
                     mediaCodec.releaseOutputBuffer(outputBufferIndex, false);
                 }
-            } catch (Exception e) {
-                Log.e(TAG, "Error draining encoder", e);
+            } catch (Throwable t) {
+                Log.e(TAG, "Error draining encoder", t);
                 break;
             }
         }
