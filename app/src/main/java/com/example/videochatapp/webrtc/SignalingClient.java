@@ -37,6 +37,7 @@ public class SignalingClient {
 
     public interface SignalingListener {
         void onSignalingConnected();
+        void onPeerJoined();
         void onOfferReceived(SessionDescription sdp);
         void onAnswerReceived(SessionDescription sdp);
         void onIceCandidateReceived(IceCandidate candidate);
@@ -94,7 +95,13 @@ public class SignalingClient {
                     }
 
                     String type = json.optString("type");
-                    if ("offer".equals(type)) {
+                    if ("peer_joined".equals(type)) {
+                        handler.post(() -> {
+                            if (listener != null) {
+                                listener.onPeerJoined();
+                            }
+                        });
+                    } else if ("offer".equals(type)) {
                         String sdpDescription = json.getString("sdp");
                         SessionDescription sdp = new SessionDescription(SessionDescription.Type.OFFER, sdpDescription);
                         handler.post(() -> {

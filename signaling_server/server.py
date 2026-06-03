@@ -21,6 +21,13 @@ async def register(websocket, room_id):
     rooms[room_id].add(websocket)
     client_rooms[websocket] = room_id
     logging.info(f"New client joined room [{room_id}]. Total active peers: {len(rooms[room_id])}")
+    
+    # Notify host peer when a second peer joins the room
+    if len(rooms[room_id]) == 2:
+        for peer in rooms[room_id]:
+            if peer != websocket:
+                await peer.send(json.dumps({"type": "peer_joined"}))
+                logging.info(f"Notified existing peer in room [{room_id}] of new guest joining.")
 
 async def unregister(websocket):
     room_id = client_rooms.pop(websocket, None)

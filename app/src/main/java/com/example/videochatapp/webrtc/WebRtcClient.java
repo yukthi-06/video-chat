@@ -23,7 +23,7 @@ public class WebRtcClient {
 
     public interface WebRtcListener {
         void onLocalStreamReady(VideoTrack track);
-        void onRemoteStreamAdded(MediaStream stream);
+        void onRemoteTrackAdded(VideoTrack track);
         void onIceCandidateGenerated(IceCandidate candidate);
         void onSdpGenerated(SessionDescription sdp);
     }
@@ -135,9 +135,7 @@ public class WebRtcClient {
             public void onIceCandidatesRemoved(IceCandidate[] iceCandidates) {}
 
             @Override
-            public void onAddStream(MediaStream mediaStream) {
-                listener.onRemoteStreamAdded(mediaStream);
-            }
+            public void onAddStream(MediaStream mediaStream) {}
 
             @Override
             public void onRemoveStream(MediaStream mediaStream) {}
@@ -149,7 +147,12 @@ public class WebRtcClient {
             public void onRenegotiationNeeded() {}
 
             @Override
-            public void onAddTrack(RtpReceiver rtpReceiver, MediaStream[] mediaStreams) {}
+            public void onAddTrack(RtpReceiver rtpReceiver, MediaStream[] mediaStreams) {
+                MediaStreamTrack track = rtpReceiver.track();
+                if (track instanceof VideoTrack) {
+                    listener.onRemoteTrackAdded((VideoTrack) track);
+                }
+            }
         });
 
         // Add local tracks

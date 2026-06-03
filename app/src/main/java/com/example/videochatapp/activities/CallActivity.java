@@ -111,12 +111,9 @@ public class CallActivity extends AppCompatActivity implements WebRtcClient.WebR
     }
 
     @Override
-    public void onRemoteStreamAdded(MediaStream stream) {
-        if (!stream.videoTracks.isEmpty()) {
-            VideoTrack remoteVideoTrack = stream.videoTracks.get(0);
-            remoteVideoTrack.setEnabled(true);
-            runOnUiThread(() -> remoteVideoTrack.addSink(remoteVideoView));
-        }
+    public void onRemoteTrackAdded(VideoTrack track) {
+        track.setEnabled(true);
+        runOnUiThread(() -> track.addSink(remoteVideoView));
     }
 
     @Override
@@ -133,6 +130,13 @@ public class CallActivity extends AppCompatActivity implements WebRtcClient.WebR
     public void onSignalingConnected() {
         runOnUiThread(() -> {
             Toast.makeText(CallActivity.this, "Connected to Signaling Server", Toast.LENGTH_SHORT).show();
+        });
+    }
+
+    @Override
+    public void onPeerJoined() {
+        runOnUiThread(() -> {
+            Toast.makeText(CallActivity.this, "Peer joined. Connecting...", Toast.LENGTH_SHORT).show();
             if (isCreator) {
                 webRtcClient.createOffer();
             }
