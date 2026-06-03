@@ -268,17 +268,35 @@ public class CallActivity extends AppCompatActivity implements WebRtcClient.WebR
 
     @Override
     public void onOfferReceived(SessionDescription sdp) {
-        runOnUiThread(() -> webRtcClient.handleOffer(sdp));
+        runOnUiThread(() -> {
+            try {
+                webRtcClient.handleOffer(sdp);
+            } catch (Throwable t) {
+                Log.e("CallActivity", "Error handling offer", t);
+            }
+        });
     }
 
     @Override
     public void onAnswerReceived(SessionDescription sdp) {
-        runOnUiThread(() -> webRtcClient.handleAnswer(sdp));
+        runOnUiThread(() -> {
+            try {
+                webRtcClient.handleAnswer(sdp);
+            } catch (Throwable t) {
+                Log.e("CallActivity", "Error handling answer", t);
+            }
+        });
     }
 
     @Override
     public void onIceCandidateReceived(IceCandidate candidate) {
-        runOnUiThread(() -> webRtcClient.addIceCandidate(candidate));
+        runOnUiThread(() -> {
+            try {
+                webRtcClient.addIceCandidate(candidate);
+            } catch (Throwable t) {
+                Log.e("CallActivity", "Error handling ice candidate", t);
+            }
+        });
     }
 
     @Override

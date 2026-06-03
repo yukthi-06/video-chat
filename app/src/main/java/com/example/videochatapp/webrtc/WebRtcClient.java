@@ -210,29 +210,52 @@ public class WebRtcClient {
     }
 
     public void handleAnswer(SessionDescription sdp) {
-        if (peerConnection != null) {
-            peerConnection.setRemoteDescription(new SimpleSdpObserver(), sdp);
+        try {
+            if (peerConnection != null) {
+                peerConnection.setRemoteDescription(new SimpleSdpObserver(), sdp);
+            }
+        } catch (Throwable t) {
+            Log.e("WebRtcClient", "Error handling answer", t);
         }
     }
 
     public void handleOffer(SessionDescription sdp) {
-        if (peerConnection == null) return;
-        
-        peerConnection.setRemoteDescription(new SimpleSdpObserver(), sdp);
-        
-        MediaConstraints constraints = new MediaConstraints();
-        peerConnection.createAnswer(new SimpleSdpObserver() {
-            @Override
-            public void onCreateSuccess(SessionDescription sessionDescription) {
-                peerConnection.setLocalDescription(new SimpleSdpObserver(), sessionDescription);
-                listener.onSdpGenerated(sessionDescription);
-            }
-        }, constraints);
+        try {
+            if (peerConnection == null) return;
+            
+            peerConnection.setRemoteDescription(new SimpleSdpObserver(), sdp);
+            
+            MediaConstraints constraints = new MediaConstraints();
+            peerConnection.createAnswer(new SimpleSdpObserver() {
+                @Override
+                public void onCreateSuccess(SessionDescription sessionDescription) {
+                    try {
+                        if (peerConnection != null) {
+                            peerConnection.setLocalDescription(new SimpleSdpObserver(), sessionDescription);
+                        }
+                        listener.onSdpGenerated(sessionDescription);
+                    } catch (Throwable t) {
+                        Log.e("WebRtcClient", "Error in createAnswer onCreateSuccess", t);
+                    }
+                }
+
+                @Override
+                public void onCreateFailure(String s) {
+                    Log.e("WebRtcClient", "createAnswer onCreateFailure: " + s);
+                }
+            }, constraints);
+        } catch (Throwable t) {
+            Log.e("WebRtcClient", "Error handling offer", t);
+        }
     }
 
     public void addIceCandidate(IceCandidate candidate) {
-        if (peerConnection != null) {
-            peerConnection.addIceCandidate(candidate);
+        try {
+            if (peerConnection != null) {
+                peerConnection.addIceCandidate(candidate);
+            }
+        } catch (Throwable t) {
+            Log.e("WebRtcClient", "Error adding ice candidate", t);
         }
     }
 
