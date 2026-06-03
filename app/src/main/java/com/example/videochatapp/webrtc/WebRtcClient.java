@@ -22,6 +22,8 @@ public class WebRtcClient {
     private SurfaceTextureHelper surfaceTextureHelper;
 
     private final String STUN_SERVER = "stun:stun.l.google.com:19302";
+    private final List<IceCandidate> queuedRemoteCandidates = new ArrayList<>();
+    private boolean isRemoteDescriptionSet = false;
 
     public interface WebRtcListener {
         void onLocalStreamReady(VideoTrack track);
@@ -212,7 +214,23 @@ public class WebRtcClient {
     public void handleAnswer(SessionDescription sdp) {
         try {
             if (peerConnection != null) {
-                peerConnection.setRemoteDescription(new SimpleSdpObserver(), sdp);
+                peerConnection.setRemoteDescription(new SdpObserver() {
+                    @Override
+                    public void onCreateSuccess(SessionDescription sessionDescription) {}
+                    @Override
+                    public void onSetSuccess() {
+                        isRemoteDescriptionSet = true;
+                        drainRemoteCandidates();
+                    }
+                    @Override
+                    public void onCreateFailure(String s) {
+                        Log.e("WebRtcClient", "handleAnswer setRemoteDescription onCreateFailure: " + s);
+                    }
+                    @Override
+                    public void onSetFailure(String s) {
+                        Log.e("WebRtcClient", "handleAnswer setRemoteDescription onSetFailure: " + s);
+                    }
+                }, sdp);
             }
         } catch (Throwable t) {
             Log.e("WebRtcClient", "Error handling answer", t);
@@ -223,7 +241,23 @@ public class WebRtcClient {
         try {
             if (peerConnection == null) return;
             
-            peerConnection.setRemoteDescription(new SimpleSdpObserver(), sdp);
+            peerConnection.setRemoteDescription(new SdpObserver() {
+                @Override
+                public void onCreateSuccess(SessionDescription sessionDescription) {}
+                @Override
+                public void onSetSuccess() {
+                    isRemoteDescriptionSet = true;
+                    drainRemoteCandidates();
+                }
+                @Override
+                public void onCreateFailure(String s) {
+                    Log.e("WebRtcClient", "handleOffer setRemoteDescription onCreateFailure: " + s);
+                }
+                @Override
+                public void onSetFailure(String s) {
+                    Log.e("WebRtcClient", "handleOffer setRemoteDescription onSetFailure: " + s);
+                }
+            }, sdp);
             
             MediaConstraints constraints = new MediaConstraints();
             peerConnection.createAnswer(new SimpleSdpObserver() {
@@ -249,14 +283,32 @@ public class WebRtcClient {
         }
     }
 
-    public void addIceCandidate(IceCandidate candidate) {
+    public synchronized void addIceCandidate(IceCandidate candidate) {
         try {
             if (peerConnection != null) {
-                peerConnection.addIceCandidate(candidate);
+                if (isRemoteDescriptionSet) {
+                    peerConnection.addIceCandidate(candidate);
+                } else {
+                    queuedRemoteCandidates.add(candidate);
+                    Log.d("WebRtcClient", "Queueing remote ICE candidate since remote description is not set yet");
+                }
             }
         } catch (Throwable t) {
             Log.e("WebRtcClient", "Error adding ice candidate", t);
         }
+    }
+
+    private synchronized void drainRemoteCandidates() {
+        if (peerConnection == null) return;
+        Log.d("WebRtcClient", "Draining " + queuedRemoteCandidates.size() + " queued remote ICE candidates");
+        for (IceCandidate candidate : queuedRemoteCandidates) {
+            try {
+                peerConnection.addIceCandidate(candidate);
+            } catch (Throwable t) {
+                Log.e("WebRtcClient", "Error adding drained ICE candidate", t);
+            }
+        }
+        queuedRemoteCandidates.clear();
     }
 
     public void toggleMic(boolean enabled) {
