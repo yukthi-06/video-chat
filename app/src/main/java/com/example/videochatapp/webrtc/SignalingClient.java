@@ -23,7 +23,8 @@ import okhttp3.WebSocketListener;
 public class SignalingClient {
 
     private static final String TAG = "SignalingClient";
-    private static final String WS_BASE_URL = "wss://connect.ittysockets.com/videochatapp-";
+    //private static final String WS_BASE_URL = "wss://connect.ittysockets.com/videochatapp-";
+    private static final String WS_BASE_URL = "wss://192.168.1.68:8765/videochatapp-";
 
     private static SignalingClient instance;
     private SignalingListener listener;
