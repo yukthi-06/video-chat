@@ -16,6 +16,7 @@
 
     <application
         android:allowBackup="true"
+        android:usesCleartextTraffic="true"
         android:icon="@android:drawable/presence_video_online"
         android:label="@string/app_name"
         android:roundIcon="@android:drawable/presence_video_online"
