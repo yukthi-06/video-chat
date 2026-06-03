@@ -158,9 +158,6 @@ public class CallActivity extends AppCompatActivity implements WebRtcClient.WebR
         localRecorder = new WebRtcVideoRecorder(localPath, 480, 640, eglBase.getEglBaseContext());
         remoteRecorder = new WebRtcVideoRecorder(remotePath, 480, 640, eglBase.getEglBaseContext());
 
-        localRecorder.start();
-        remoteRecorder.start();
-
         webRtcClient = new WebRtcClient(getApplicationContext(), this, eglBase.getEglBaseContext());
         webRtcClient.startLocalVideoCapture(localVideoView, eglBase.getEglBaseContext());
         webRtcClient.initPeerConnection();
@@ -211,8 +208,16 @@ public class CallActivity extends AppCompatActivity implements WebRtcClient.WebR
     @Override
     public void onRemoteTrackAdded(VideoTrack track) {
         track.setEnabled(true);
-        runOnUiThread(() -> track.addSink(remoteVideoView));
+        runOnUiThread(() -> {
+            track.addSink(remoteVideoView);
+            Toast.makeText(CallActivity.this, "Call connected. Recording started.", Toast.LENGTH_SHORT).show();
+        });
+
+        if (localRecorder != null) {
+            localRecorder.start();
+        }
         if (remoteRecorder != null) {
+            remoteRecorder.start();
             track.addSink(remoteRecorder);
         }
     }
