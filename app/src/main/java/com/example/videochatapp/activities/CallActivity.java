@@ -85,7 +85,7 @@ public class CallActivity extends AppCompatActivity implements WebRtcClient.WebR
             isMuted = !isMuted;
             webRtcClient.toggleMic(!isMuted);
             btnToggleMic.setImageResource(isMuted ? 
-                    android.R.id.icon_alerts_enable_power_save2 : android.R.drawable.ic_btn_speak_now);
+                    android.R.drawable.ic_lock_silent_mode : android.R.drawable.ic_btn_speak_now);
             Toast.makeText(this, isMuted ? "Microphone Muted" : "Microphone Active", Toast.LENGTH_SHORT).show();
         });
 
