@@ -21,10 +21,12 @@ public class WebRtcVideoRecorder implements VideoSink {
 
     private final String filePath;
     private final EglBase.Context sharedContext;
+    private final boolean recordAudio;
     private int width;
     private int height;
 
     private MediaCodec mediaCodec;
+    private MediaCodec audioCodec;
     private MediaMuxer mediaMuxer;
     private Surface inputSurface;
     private EglBase recorderEglBase;
@@ -32,14 +34,37 @@ public class WebRtcVideoRecorder implements VideoSink {
     private VideoFrameDrawer frameDrawer;
 
     private int videoTrackIndex = -1;
+    private int audioTrackIndex = -1;
     private boolean isStartRequested = false;
     private boolean isRecording = false;
     private boolean isMuxerStarted = false;
+    private boolean isAudioEncoderStarted = false;
     private Thread encoderThread;
+    private Thread audioEncoderThread;
+    
+    private final Object muxerLock = new Object();
+    private final java.util.concurrent.LinkedBlockingQueue<AudioFrame> audioQueue = new java.util.concurrent.LinkedBlockingQueue<>();
+
+    private static class AudioFrame {
+        final byte[] data;
+        final int sampleRate;
+        final int channelCount;
+
+        AudioFrame(byte[] data, int sampleRate, int channelCount) {
+            this.data = data;
+            this.sampleRate = sampleRate;
+            this.channelCount = channelCount;
+        }
+    }
 
     public WebRtcVideoRecorder(String filePath, EglBase.Context sharedContext) {
+        this(filePath, sharedContext, false);
+    }
+
+    public WebRtcVideoRecorder(String filePath, EglBase.Context sharedContext, boolean recordAudio) {
         this.filePath = filePath;
         this.sharedContext = sharedContext;
+        this.recordAudio = recordAudio;
     }
 
     public synchronized void start() {
@@ -66,7 +91,7 @@ public class WebRtcVideoRecorder implements VideoSink {
         android.opengl.EGLSurface oldReadSurface = android.opengl.EGL14.eglGetCurrentSurface(android.opengl.EGL14.EGL_READ);
 
         try {
-            // Configure MediaCodec
+            // Configure MediaCodec for Video
             MediaFormat format = MediaFormat.createVideoFormat(MIME_TYPE, width, height);
             format.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface);
             format.setInteger(MediaFormat.KEY_BIT_RATE, BITRATE);
@@ -99,6 +124,11 @@ public class WebRtcVideoRecorder implements VideoSink {
 
             encoderThread = new Thread(this::drainEncoder, "VideoEncoderThread");
             encoderThread.start();
+
+            if (recordAudio) {
+                audioEncoderThread = new Thread(this::drainAudioEncoder, "AudioEncoderThread");
+                audioEncoderThread.start();
+            }
 
             Log.d(TAG, "Video recorder started dynamically for: " + filePath + " (" + width + "x" + height + ")");
         } catch (Throwable t) {
@@ -194,14 +224,16 @@ public class WebRtcVideoRecorder implements VideoSink {
                         // ignore
                     }
                 } else if (outputBufferIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
-                    if (isMuxerStarted) {
-                        throw new RuntimeException("Format changed twice");
+                    synchronized (muxerLock) {
+                        if (videoTrackIndex != -1) {
+                            throw new RuntimeException("Video format changed twice");
+                        }
+                        MediaFormat newFormat = mediaCodec.getOutputFormat();
+                        videoTrackIndex = mediaMuxer.addTrack(newFormat);
+                        Log.d(TAG, "Video track added: " + videoTrackIndex);
+                        checkAndStartMuxer();
+                        muxerLock.notifyAll();
                     }
-                    MediaFormat newFormat = mediaCodec.getOutputFormat();
-                    videoTrackIndex = mediaMuxer.addTrack(newFormat);
-                    mediaMuxer.start();
-                    isMuxerStarted = true;
-                    Log.d(TAG, "MediaMuxer started");
                 } else if (outputBufferIndex >= 0) {
                     ByteBuffer encodedData = mediaCodec.getOutputBuffer(outputBufferIndex);
                     if (encodedData == null) {
@@ -209,18 +241,137 @@ public class WebRtcVideoRecorder implements VideoSink {
                     }
 
                     if (bufferInfo.size > 0) {
-                        if (!isMuxerStarted) {
-                            throw new RuntimeException("Muxer not started before output");
+                        synchronized (muxerLock) {
+                            while (!isMuxerStarted && isRecording) {
+                                try {
+                                    muxerLock.wait(10);
+                                } catch (InterruptedException e) {
+                                    break;
+                                }
+                            }
+                            if (isMuxerStarted) {
+                                encodedData.position(bufferInfo.offset);
+                                encodedData.limit(bufferInfo.offset + bufferInfo.size);
+                                mediaMuxer.writeSampleData(videoTrackIndex, encodedData, bufferInfo);
+                            }
                         }
-                        encodedData.position(bufferInfo.offset);
-                        encodedData.limit(bufferInfo.offset + bufferInfo.size);
-                        mediaMuxer.writeSampleData(videoTrackIndex, encodedData, bufferInfo);
                     }
                     mediaCodec.releaseOutputBuffer(outputBufferIndex, false);
                 }
             } catch (Throwable t) {
                 Log.e(TAG, "Error draining encoder", t);
                 break;
+            }
+        }
+    }
+
+    public void onAudioData(byte[] data, int sampleRate, int channelCount) {
+        if (!isStartRequested || !recordAudio) {
+            return;
+        }
+        audioQueue.offer(new AudioFrame(data, sampleRate, channelCount));
+    }
+
+    private void initAudioCodec(int sampleRate, int channelCount) throws IOException {
+        MediaFormat format = MediaFormat.createAudioFormat(MediaFormat.MIMETYPE_AUDIO_AAC, sampleRate, channelCount);
+        format.setInteger(MediaFormat.KEY_AAC_PROFILE, MediaCodecInfo.CodecProfileLevel.AACObjectLC);
+        format.setInteger(MediaFormat.KEY_BIT_RATE, 64000);
+        format.setInteger(MediaFormat.KEY_SAMPLE_RATE, sampleRate);
+        format.setInteger(MediaFormat.KEY_CHANNEL_COUNT, channelCount);
+        format.setInteger(MediaFormat.KEY_MAX_INPUT_SIZE, 16384);
+
+        audioCodec = MediaCodec.createEncoderByType(MediaFormat.MIMETYPE_AUDIO_AAC);
+        audioCodec.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
+        audioCodec.start();
+        isAudioEncoderStarted = true;
+        Log.d(TAG, "Audio codec started successfully (" + sampleRate + "Hz, " + channelCount + " channels)");
+    }
+
+    private void checkAndStartMuxer() {
+        synchronized (muxerLock) {
+            if (isMuxerStarted) return;
+            boolean videoReady = (videoTrackIndex != -1);
+            boolean audioReady = (!recordAudio || audioTrackIndex != -1);
+            if (videoReady && audioReady) {
+                mediaMuxer.start();
+                isMuxerStarted = true;
+                Log.d(TAG, "MediaMuxer started with videoTrack=" + videoTrackIndex + ", audioTrack=" + audioTrackIndex);
+            }
+        }
+    }
+
+    private void drainAudioEncoder() {
+        MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
+        long totalAudioSamples = 0;
+
+        while (isRecording) {
+            try {
+                AudioFrame frame = audioQueue.poll(10, java.util.concurrent.TimeUnit.MILLISECONDS);
+                if (frame != null) {
+                    if (audioCodec == null) {
+                        initAudioCodec(frame.sampleRate, frame.channelCount);
+                    }
+
+                    if (audioCodec != null) {
+                        int inputBufferIndex = audioCodec.dequeueInputBuffer(10000);
+                        if (inputBufferIndex >= 0) {
+                            ByteBuffer inputBuffer = audioCodec.getInputBuffer(inputBufferIndex);
+                            if (inputBuffer != null) {
+                                inputBuffer.clear();
+                                inputBuffer.put(frame.data);
+
+                                long timestampUs = totalAudioSamples * 1000000L / frame.sampleRate;
+                                int samplesCount = frame.data.length / (frame.channelCount * 2);
+                                totalAudioSamples += samplesCount;
+
+                                audioCodec.queueInputBuffer(inputBufferIndex, 0, frame.data.length, timestampUs, 0);
+                            }
+                        }
+                    }
+                }
+
+                if (audioCodec != null) {
+                    int outputBufferIndex = audioCodec.dequeueOutputBuffer(bufferInfo, 1000);
+                    if (outputBufferIndex == MediaCodec.INFO_TRY_AGAIN_LATER) {
+                        // ignore
+                    } else if (outputBufferIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+                        synchronized (muxerLock) {
+                            if (audioTrackIndex == -1) {
+                                MediaFormat newFormat = audioCodec.getOutputFormat();
+                                audioTrackIndex = mediaMuxer.addTrack(newFormat);
+                                Log.d(TAG, "Audio track added: " + audioTrackIndex);
+                                checkAndStartMuxer();
+                                muxerLock.notifyAll();
+                            }
+                        }
+                    } else if (outputBufferIndex >= 0) {
+                        ByteBuffer encodedData = audioCodec.getOutputBuffer(outputBufferIndex);
+                        if (encodedData != null && bufferInfo.size > 0) {
+                            synchronized (muxerLock) {
+                                while (!isMuxerStarted && isRecording) {
+                                    try {
+                                        muxerLock.wait(10);
+                                    } catch (InterruptedException e) {
+                                        break;
+                                    }
+                                }
+                                if (isMuxerStarted) {
+                                    encodedData.position(bufferInfo.offset);
+                                    encodedData.limit(bufferInfo.offset + bufferInfo.size);
+                                    mediaMuxer.writeSampleData(audioTrackIndex, encodedData, bufferInfo);
+                                }
+                            }
+                        }
+                        audioCodec.releaseOutputBuffer(outputBufferIndex, false);
+                    }
+                }
+            } catch (Throwable t) {
+                Log.e(TAG, "Error in audio encoder thread", t);
+                try {
+                    Thread.sleep(10);
+                } catch (InterruptedException e) {
+                    // ignore
+                }
             }
         }
     }
@@ -242,6 +393,15 @@ public class WebRtcVideoRecorder implements VideoSink {
             encoderThread = null;
         }
 
+        if (audioEncoderThread != null) {
+            try {
+                audioEncoderThread.join(2000);
+            } catch (InterruptedException e) {
+                Log.e(TAG, "Audio encoder thread join interrupted", e);
+            }
+            audioEncoderThread = null;
+        }
+
         releaseCodec();
         Log.d(TAG, "Video recorder stopped for: " + filePath);
     }
@@ -255,6 +415,18 @@ public class WebRtcVideoRecorder implements VideoSink {
                 Log.e(TAG, "Error releasing MediaCodec", e);
             }
             mediaCodec = null;
+        }
+
+        if (audioCodec != null) {
+            try {
+                if (isAudioEncoderStarted) {
+                    audioCodec.stop();
+                }
+                audioCodec.release();
+            } catch (Exception e) {
+                Log.e(TAG, "Error releasing audio Codec", e);
+            }
+            audioCodec = null;
         }
 
         if (mediaMuxer != null) {
@@ -290,6 +462,9 @@ public class WebRtcVideoRecorder implements VideoSink {
         }
 
         isMuxerStarted = false;
+        isAudioEncoderStarted = false;
         videoTrackIndex = -1;
+        audioTrackIndex = -1;
+        audioQueue.clear();
     }
 }

@@ -31,6 +31,7 @@ public class WebRtcClient {
         void onPeerDisconnected();
         void onIceCandidateGenerated(IceCandidate candidate);
         void onSdpGenerated(SessionDescription sdp);
+        void onLocalAudioSample(byte[] data, int sampleRate, int channelCount);
     }
 
     public WebRtcClient(Context context, WebRtcListener listener, EglBase.Context eglContext) {
@@ -50,15 +51,22 @@ public class WebRtcClient {
 
             // Create JavaAudioDeviceModule for proper audio playout/record
             JavaAudioDeviceModule audioDeviceModule;
+            JavaAudioDeviceModule.SamplesReadyCallback samplesCallback = samples -> {
+                if (listener != null) {
+                    listener.onLocalAudioSample(samples.getData(), samples.getSampleRate(), samples.getChannelCount());
+                }
+            };
             try {
                 audioDeviceModule = JavaAudioDeviceModule.builder(context)
                         .setUseHardwareAcousticEchoCanceler(true)
                         .setUseHardwareNoiseSuppressor(true)
+                        .setSamplesReadyCallback(samplesCallback)
                         .createAudioDeviceModule();
             } catch (Throwable t) {
                 Log.w("WebRtcClient", "Failed to create JavaAudioDeviceModule with hardware effects, falling back to default", t);
                 try {
                     audioDeviceModule = JavaAudioDeviceModule.builder(context)
+                            .setSamplesReadyCallback(samplesCallback)
                             .createAudioDeviceModule();
                 } catch (Throwable t2) {
                     Log.e("WebRtcClient", "Failed to create any JavaAudioDeviceModule", t2);
