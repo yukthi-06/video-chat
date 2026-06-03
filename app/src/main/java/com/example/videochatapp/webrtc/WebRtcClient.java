@@ -31,13 +31,13 @@ public class WebRtcClient {
         void onSdpGenerated(SessionDescription sdp);
     }
 
-    public WebRtcClient(Context context, WebRtcListener listener) {
+    public WebRtcClient(Context context, WebRtcListener listener, EglBase.Context eglContext) {
         this.context = context;
         this.listener = listener;
-        initWebRtc();
+        initWebRtc(eglContext);
     }
 
-    private void initWebRtc() {
+    private void initWebRtc(EglBase.Context eglContext) {
         // Initialize PeerConnectionFactory
         PeerConnectionFactory.InitializationOptions initializationOptions =
                 PeerConnectionFactory.InitializationOptions.builder(context)
@@ -66,8 +66,8 @@ public class WebRtcClient {
         // Create PeerConnectionFactory
         PeerConnectionFactory.Options options = new PeerConnectionFactory.Options();
         DefaultVideoEncoderFactory defaultVideoEncoderFactory = new DefaultVideoEncoderFactory(
-                null, true, true);
-        DefaultVideoDecoderFactory defaultVideoDecoderFactory = new DefaultVideoDecoderFactory(null);
+                eglContext, true, true);
+        DefaultVideoDecoderFactory defaultVideoDecoderFactory = new DefaultVideoDecoderFactory(eglContext);
 
         factory = PeerConnectionFactory.builder()
                 .setOptions(options)

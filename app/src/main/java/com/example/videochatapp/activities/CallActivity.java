@@ -161,7 +161,7 @@ public class CallActivity extends AppCompatActivity implements WebRtcClient.WebR
         localRecorder.start();
         remoteRecorder.start();
 
-        webRtcClient = new WebRtcClient(getApplicationContext(), this);
+        webRtcClient = new WebRtcClient(getApplicationContext(), this, eglBase.getEglBaseContext());
         webRtcClient.startLocalVideoCapture(localVideoView, eglBase.getEglBaseContext());
         webRtcClient.initPeerConnection();
 
