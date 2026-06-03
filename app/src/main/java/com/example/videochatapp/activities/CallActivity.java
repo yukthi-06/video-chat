@@ -12,6 +12,8 @@ import com.example.videochatapp.webrtc.WebRtcClient;
 import com.example.videochatapp.webrtc.WebRtcVideoRecorder;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import org.webrtc.*;
+import android.util.Log;
+import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
@@ -86,11 +88,42 @@ public class CallActivity extends AppCompatActivity implements WebRtcClient.WebR
         remoteVideoView.setEnableHardwareScaler(true);
     }
 
+    private String getRecordingsDirectory() {
+        File dir = new File("/sdcard/Vypeensoft/Video_Caller/recordings");
+        boolean isWritable = false;
+        try {
+            if (!dir.exists()) {
+                dir.mkdirs();
+            }
+            if (dir.exists()) {
+                // Perform a test write to verify write permissions (for Scoped Storage compatibility)
+                File testFile = new File(dir, "test_write_" + System.currentTimeMillis() + ".tmp");
+                if (testFile.createNewFile()) {
+                    testFile.delete();
+                    isWritable = true;
+                }
+            }
+        } catch (Exception e) {
+            Log.e("CallActivity", "Failed to write to external SD card directory", e);
+        }
+
+        if (!isWritable) {
+            Log.w("CallActivity", "External SD card directory is not writable. Falling back to sandbox.");
+            dir = new File(getExternalFilesDir(null), "Vypeensoft/Video_Caller/recordings");
+            dir.mkdirs();
+        }
+        return dir.getAbsolutePath();
+    }
+
     private void initWebRtcAndSignaling() {
         // Initialize video stream recorders
         String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date());
-        String localPath = "/sdcard/Vypeensoft/Video_Caller/recordings/" + timestamp + "_local.mp4";
-        String remotePath = "/sdcard/Vypeensoft/Video_Caller/recordings/" + timestamp + "_remote.mp4";
+        String recDir = getRecordingsDirectory();
+        Log.d("CallActivity", "Saving MP4 files to: " + recDir);
+        Toast.makeText(this, "Recording path: " + recDir, Toast.LENGTH_LONG).show();
+
+        String localPath = recDir + "/" + timestamp + "_local.mp4";
+        String remotePath = recDir + "/" + timestamp + "_remote.mp4";
 
         localRecorder = new WebRtcVideoRecorder(localPath, 480, 640, eglBase.getEglBaseContext());
         remoteRecorder = new WebRtcVideoRecorder(remotePath, 480, 640, eglBase.getEglBaseContext());

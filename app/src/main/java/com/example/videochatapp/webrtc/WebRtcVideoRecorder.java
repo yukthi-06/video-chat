@@ -88,7 +88,7 @@ public class WebRtcVideoRecorder implements VideoSink {
             encoderThread.start();
 
             Log.d(TAG, "Video recorder started for: " + filePath);
-        } catch (IOException e) {
+        } catch (Exception e) {
             Log.e(TAG, "Failed to initialize recorder", e);
             releaseCodec();
         }
@@ -120,7 +120,13 @@ public class WebRtcVideoRecorder implements VideoSink {
         while (isRecording) {
             try {
                 int outputBufferIndex = mediaCodec.dequeueOutputBuffer(bufferInfo, 10000);
-                if (outputBufferIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+                if (outputBufferIndex == MediaCodec.INFO_TRY_AGAIN_LATER) {
+                    try {
+                        Thread.sleep(10);
+                    } catch (InterruptedException e) {
+                        // ignore
+                    }
+                } else if (outputBufferIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
                     if (isMuxerStarted) {
                         throw new RuntimeException("Format changed twice");
                     }
