@@ -1,0 +1,221 @@
+package com.example.videochatapp.webrtc;
+
+import android.media.MediaCodec;
+import android.media.MediaCodecInfo;
+import android.media.MediaFormat;
+import android.media.MediaMuxer;
+import android.opengl.GLES20;
+import android.util.Log;
+import android.view.Surface;
+import org.webrtc.*;
+import java.io.File;
+import java.io.IOException;
+import java.nio.ByteBuffer;
+
+public class WebRtcVideoRecorder implements VideoSink {
+    private static final String TAG = "WebRtcVideoRecorder";
+    private static final String MIME_TYPE = MediaFormat.MIMETYPE_VIDEO_AVC; // H.264
+    private static final int FRAME_RATE = 30;
+    private static final int IFRAME_INTERVAL = 2; // 2 seconds between keyframes
+    private static final int BITRATE = 1500000; // 1.5 Mbps
+
+    private final String filePath;
+    private final int width;
+    private final int height;
+    private final EglBase.Context sharedContext;
+
+    private MediaCodec mediaCodec;
+    private MediaMuxer mediaMuxer;
+    private Surface inputSurface;
+    private EglBase recorderEglBase;
+    private GlRectDrawer drawer;
+    private VideoFrameDrawer frameDrawer;
+
+    private int videoTrackIndex = -1;
+    private boolean isRecording = false;
+    private boolean isMuxerStarted = false;
+    private Thread encoderThread;
+
+    public WebRtcVideoRecorder(String filePath, int width, int height, EglBase.Context sharedContext) {
+        this.filePath = filePath;
+        // H.264 encoders prefer width/height to be multiples of 16
+        this.width = (width / 16) * 16;
+        this.height = (height / 16) * 16;
+        this.sharedContext = sharedContext;
+    }
+
+    public synchronized void start() {
+        if (isRecording) {
+            Log.w(TAG, "Recorder is already running");
+            return;
+        }
+
+        File file = new File(filePath);
+        File parentDir = file.getParentFile();
+        if (parentDir != null && !parentDir.exists()) {
+            boolean created = parentDir.mkdirs();
+            Log.d(TAG, "Recording directory created: " + created);
+        }
+
+        try {
+            // Configure MediaCodec
+            MediaFormat format = MediaFormat.createVideoFormat(MIME_TYPE, width, height);
+            format.setInteger(MediaFormat.KEY_COLOR_FORMAT, MediaCodecInfo.CodecCapabilities.COLOR_FormatSurface);
+            format.setInteger(MediaFormat.KEY_BIT_RATE, BITRATE);
+            format.setInteger(MediaFormat.KEY_FRAME_RATE, FRAME_RATE);
+            format.setInteger(MediaFormat.KEY_I_FRAME_INTERVAL, IFRAME_INTERVAL);
+
+            mediaCodec = MediaCodec.createEncoderByType(MIME_TYPE);
+            mediaCodec.configure(format, null, null, MediaCodec.CONFIGURE_FLAG_ENCODE);
+            inputSurface = mediaCodec.createInputSurface();
+            mediaCodec.start();
+
+            // Configure MediaMuxer
+            mediaMuxer = new MediaMuxer(filePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+
+            // Configure EglHelper to draw frames to MediaCodec's input surface
+            recorderEglBase = EglBase.create(sharedContext, EglBase.CONFIG_RECORDABLE);
+            recorderEglBase.createSurface(inputSurface);
+            recorderEglBase.makeCurrent();
+
+            drawer = new GlRectDrawer();
+            frameDrawer = new VideoFrameDrawer();
+
+            isRecording = true;
+            isMuxerStarted = false;
+
+            encoderThread = new Thread(this::drainEncoder, "VideoEncoderThread");
+            encoderThread.start();
+
+            Log.d(TAG, "Video recorder started for: " + filePath);
+        } catch (IOException e) {
+            Log.e(TAG, "Failed to initialize recorder", e);
+            releaseCodec();
+        }
+    }
+
+    @Override
+    public synchronized void onFrame(VideoFrame frame) {
+        if (!isRecording || recorderEglBase == null) {
+            return;
+        }
+
+        try {
+            recorderEglBase.makeCurrent();
+            // Clear OpenGL buffer
+            GLES20.glClear(GLES20.GL_COLOR_BUFFER_BIT);
+            
+            // Draw the WebRTC frame to the MediaCodec input surface
+            frameDrawer.drawFrame(frame, drawer, null, 0, 0, width, height);
+            
+            // Swap buffers and set the timestamp in nanoseconds
+            recorderEglBase.swapBuffers(frame.getTimestampNs());
+        } catch (Exception e) {
+            Log.e(TAG, "Error rendering frame to encoder surface", e);
+        }
+    }
+
+    private void drainEncoder() {
+        MediaCodec.BufferInfo bufferInfo = new MediaCodec.BufferInfo();
+        while (isRecording) {
+            try {
+                int outputBufferIndex = mediaCodec.dequeueOutputBuffer(bufferInfo, 10000);
+                if (outputBufferIndex == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+                    if (isMuxerStarted) {
+                        throw new RuntimeException("Format changed twice");
+                    }
+                    MediaFormat newFormat = mediaCodec.getOutputFormat();
+                    videoTrackIndex = mediaMuxer.addTrack(newFormat);
+                    mediaMuxer.start();
+                    isMuxerStarted = true;
+                    Log.d(TAG, "MediaMuxer started");
+                } else if (outputBufferIndex >= 0) {
+                    ByteBuffer encodedData = mediaCodec.getOutputBuffer(outputBufferIndex);
+                    if (encodedData == null) {
+                        throw new RuntimeException("encoderOutputBuffer " + outputBufferIndex + " was null");
+                    }
+
+                    if (bufferInfo.size > 0) {
+                        if (!isMuxerStarted) {
+                            throw new RuntimeException("Muxer not started before output");
+                        }
+                        encodedData.position(bufferInfo.offset);
+                        encodedData.limit(bufferInfo.offset + bufferInfo.size);
+                        mediaMuxer.writeSampleData(videoTrackIndex, encodedData, bufferInfo);
+                    }
+                    mediaCodec.releaseOutputBuffer(outputBufferIndex, false);
+                }
+            } catch (Exception e) {
+                Log.e(TAG, "Error draining encoder", e);
+                break;
+            }
+        }
+    }
+
+    public synchronized void stop() {
+        if (!isRecording) {
+            return;
+        }
+
+        isRecording = false;
+
+        if (encoderThread != null) {
+            try {
+                encoderThread.join(2000);
+            } catch (InterruptedException e) {
+                Log.e(TAG, "Encoder thread join interrupted", e);
+            }
+            encoderThread = null;
+        }
+
+        releaseCodec();
+        Log.d(TAG, "Video recorder stopped for: " + filePath);
+    }
+
+    private void releaseCodec() {
+        if (mediaCodec != null) {
+            try {
+                mediaCodec.stop();
+                mediaCodec.release();
+            } catch (Exception e) {
+                Log.e(TAG, "Error releasing MediaCodec", e);
+            }
+            mediaCodec = null;
+        }
+
+        if (mediaMuxer != null) {
+            try {
+                if (isMuxerStarted) {
+                    mediaMuxer.stop();
+                }
+                mediaMuxer.release();
+            } catch (Exception e) {
+                Log.e(TAG, "Error releasing MediaMuxer", e);
+            }
+            mediaMuxer = null;
+        }
+
+        if (recorderEglBase != null) {
+            recorderEglBase.release();
+            recorderEglBase = null;
+        }
+
+        if (drawer != null) {
+            drawer.release();
+            drawer = null;
+        }
+
+        if (frameDrawer != null) {
+            frameDrawer.release();
+            frameDrawer = null;
+        }
+
+        if (inputSurface != null) {
+            inputSurface.release();
+            inputSurface = null;
+        }
+
+        isMuxerStarted = false;
+        videoTrackIndex = -1;
+    }
+}

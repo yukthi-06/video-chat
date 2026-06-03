@@ -24,7 +24,9 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
     private static final int PERMISSION_REQUEST_CODE = 101;
     private final String[] requiredPermissions = {
             Manifest.permission.CAMERA,
-            Manifest.permission.RECORD_AUDIO
+            Manifest.permission.RECORD_AUDIO,
+            Manifest.permission.READ_EXTERNAL_STORAGE,
+            Manifest.permission.WRITE_EXTERNAL_STORAGE
     };
 
     @Override

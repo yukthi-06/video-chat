@@ -9,8 +9,12 @@ import androidx.appcompat.app.AppCompatActivity;
 import com.example.videochatapp.R;
 import com.example.videochatapp.webrtc.SignalingClient;
 import com.example.videochatapp.webrtc.WebRtcClient;
+import com.example.videochatapp.webrtc.WebRtcVideoRecorder;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import org.webrtc.*;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
 
 public class CallActivity extends AppCompatActivity implements WebRtcClient.WebRtcListener, SignalingClient.SignalingListener {
 
@@ -28,6 +32,8 @@ public class CallActivity extends AppCompatActivity implements WebRtcClient.WebR
     private SignalingClient signalingClient;
     private EglBase eglBase;
     private AudioManager audioManager;
+    private WebRtcVideoRecorder localRecorder;
+    private WebRtcVideoRecorder remoteRecorder;
 
     private boolean isMuted = false;
     private boolean isVideoDisabled = false;
@@ -81,6 +87,17 @@ public class CallActivity extends AppCompatActivity implements WebRtcClient.WebR
     }
 
     private void initWebRtcAndSignaling() {
+        // Initialize video stream recorders
+        String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(new Date());
+        String localPath = "/sdcard/Vypeensoft/Video_Caller/recordings/" + timestamp + "_local.mp4";
+        String remotePath = "/sdcard/Vypeensoft/Video_Caller/recordings/" + timestamp + "_remote.mp4";
+
+        localRecorder = new WebRtcVideoRecorder(localPath, 480, 640, eglBase.getEglBaseContext());
+        remoteRecorder = new WebRtcVideoRecorder(remotePath, 480, 640, eglBase.getEglBaseContext());
+
+        localRecorder.start();
+        remoteRecorder.start();
+
         webRtcClient = new WebRtcClient(getApplicationContext(), this);
         webRtcClient.startLocalVideoCapture(localVideoView, eglBase.getEglBaseContext());
         webRtcClient.initPeerConnection();
@@ -111,19 +128,30 @@ public class CallActivity extends AppCompatActivity implements WebRtcClient.WebR
     }
 
     private void endCall() {
+        if (localRecorder != null) {
+            localRecorder.stop();
+        }
+        if (remoteRecorder != null) {
+            remoteRecorder.stop();
+        }
         signalingClient.disconnect();
         finish();
     }
 
     @Override
     public void onLocalStreamReady(VideoTrack track) {
-        // Local stream is already added to local renderer inside WebRtcClient
+        if (localRecorder != null) {
+            track.addSink(localRecorder);
+        }
     }
 
     @Override
     public void onRemoteTrackAdded(VideoTrack track) {
         track.setEnabled(true);
         runOnUiThread(() -> track.addSink(remoteVideoView));
+        if (remoteRecorder != null) {
+            track.addSink(remoteRecorder);
+        }
     }
 
     @Override
@@ -187,6 +215,12 @@ public class CallActivity extends AppCompatActivity implements WebRtcClient.WebR
     @Override
     protected void onDestroy() {
         super.onDestroy();
+        if (localRecorder != null) {
+            localRecorder.stop();
+        }
+        if (remoteRecorder != null) {
+            remoteRecorder.stop();
+        }
         if (audioManager != null) {
             audioManager.setMode(AudioManager.MODE_NORMAL);
             audioManager.setSpeakerphoneOn(false);
