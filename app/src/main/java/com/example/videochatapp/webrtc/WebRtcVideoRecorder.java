@@ -44,6 +44,7 @@ public class WebRtcVideoRecorder implements VideoSink {
     
     private final Object muxerLock = new Object();
     private final java.util.concurrent.LinkedBlockingQueue<AudioFrame> audioQueue = new java.util.concurrent.LinkedBlockingQueue<>();
+    private long firstVideoTimestampNs = -1;
 
     private static class AudioFrame {
         final byte[] data;
@@ -192,8 +193,12 @@ public class WebRtcVideoRecorder implements VideoSink {
             // Draw the WebRTC frame to the MediaCodec input surface
             frameDrawer.drawFrame(frame, drawer, null, 0, 0, width, height);
             
-            // Swap buffers and set the timestamp in nanoseconds
-            recorderEglBase.swapBuffers(frame.getTimestampNs());
+            // Swap buffers and set the timestamp in nanoseconds, normalized to start from 0
+            if (firstVideoTimestampNs == -1) {
+                firstVideoTimestampNs = frame.getTimestampNs();
+            }
+            long ptsNs = frame.getTimestampNs() - firstVideoTimestampNs;
+            recorderEglBase.swapBuffers(ptsNs);
         } catch (Throwable t) {
             Log.e(TAG, "Error rendering frame to encoder surface", t);
         } finally {
@@ -465,6 +470,7 @@ public class WebRtcVideoRecorder implements VideoSink {
         isAudioEncoderStarted = false;
         videoTrackIndex = -1;
         audioTrackIndex = -1;
+        firstVideoTimestampNs = -1;
         audioQueue.clear();
     }
 }
