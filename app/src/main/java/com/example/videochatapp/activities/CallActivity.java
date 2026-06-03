@@ -72,7 +72,7 @@ public class CallActivity extends AppCompatActivity implements WebRtcClient.WebR
 
     private void initWebRtcAndSignaling() {
         webRtcClient = new WebRtcClient(getApplicationContext(), this);
-        webRtcClient.startLocalVideoCapture(localVideoView);
+        webRtcClient.startLocalVideoCapture(localVideoView, eglBase.getEglBaseContext());
         webRtcClient.initPeerConnection();
 
         signalingClient = SignalingClient.getInstance();

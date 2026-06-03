@@ -55,8 +55,8 @@ public class WebRtcClient {
                 .createPeerConnectionFactory();
     }
 
-    public void startLocalVideoCapture(SurfaceViewRenderer localRenderer) {
-        surfaceTextureHelper = SurfaceTextureHelper.create("CaptureThread", null);
+    public void startLocalVideoCapture(SurfaceViewRenderer localRenderer, EglBase.Context eglContext) {
+        surfaceTextureHelper = SurfaceTextureHelper.create("CaptureThread", eglContext);
         videoCapturer = createVideoCapturer();
         
         if (videoCapturer != null) {
