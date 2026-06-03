@@ -213,12 +213,21 @@ public class CallActivity extends AppCompatActivity implements WebRtcClient.WebR
             Toast.makeText(CallActivity.this, "Call connected. Recording started.", Toast.LENGTH_SHORT).show();
         });
 
-        if (localRecorder != null) {
-            localRecorder.start();
+        try {
+            if (localRecorder != null) {
+                localRecorder.start();
+            }
+        } catch (Throwable t) {
+            Log.e("CallActivity", "Error starting local recorder on remote track added", t);
         }
-        if (remoteRecorder != null) {
-            remoteRecorder.start();
-            track.addSink(remoteRecorder);
+
+        try {
+            if (remoteRecorder != null) {
+                remoteRecorder.start();
+                track.addSink(remoteRecorder);
+            }
+        } catch (Throwable t) {
+            Log.e("CallActivity", "Error starting remote recorder on remote track added", t);
         }
     }
 
