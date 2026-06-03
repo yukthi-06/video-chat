@@ -3,7 +3,11 @@ package com.example.videochatapp.activities;
 import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
+import android.os.Environment;
+import android.provider.Settings;
 import android.view.MenuItem;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
@@ -61,6 +65,12 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
     private void checkAndRequestPermissions() {
         boolean allGranted = true;
         for (String permission : requiredPermissions) {
+            // Under Android 11+, WRITE_EXTERNAL_STORAGE / READ_EXTERNAL_STORAGE permissions are replaced or supplemented by MANAGE_EXTERNAL_STORAGE
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && 
+                (permission.equals(Manifest.permission.WRITE_EXTERNAL_STORAGE) || 
+                 permission.equals(Manifest.permission.READ_EXTERNAL_STORAGE))) {
+                continue; // Checked separately below
+            }
             if (ContextCompat.checkSelfPermission(this, permission) != PackageManager.PERMISSION_GRANTED) {
                 allGranted = false;
                 break;
@@ -69,6 +79,22 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
 
         if (!allGranted) {
             ActivityCompat.requestPermissions(this, requiredPermissions, PERMISSION_REQUEST_CODE);
+        }
+
+        // On Android 11+ (API 30+), check/request MANAGE_EXTERNAL_STORAGE
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            if (!Environment.isExternalStorageManager()) {
+                try {
+                    Intent intent = new Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION);
+                    intent.addCategory("android.intent.category.DEFAULT");
+                    intent.setData(Uri.parse(String.format("package:%s", getPackageName())));
+                    startActivityForResult(intent, 2296);
+                } catch (Exception e) {
+                    Intent intent = new Intent();
+                    intent.setAction(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION);
+                    startActivityForResult(intent, 2296);
+                }
+            }
         }
     }
 
