@@ -37,7 +37,8 @@ public class HomeFragment extends Fragment {
 
     private void startCall() {
         // Generate a random 6-character room ID
-        String roomId = UUID.randomUUID().toString().substring(0, 6).toUpperCase();
+        //String roomId = UUID.randomUUID().toString().substring(0, 6).toUpperCase();
+        String roomId = "1";
         
         Intent intent = new Intent(getActivity(), CallActivity.class);
         intent.putExtra(CallActivity.EXTRA_ROOM_ID, roomId);
