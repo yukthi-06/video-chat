@@ -40,43 +40,51 @@ public class WebRtcClient {
     }
 
     private void initWebRtc(EglBase.Context eglContext) {
-        // Initialize PeerConnectionFactory
-        PeerConnectionFactory.InitializationOptions initializationOptions =
-                PeerConnectionFactory.InitializationOptions.builder(context)
-                        .setEnableInternalTracer(true)
-                        .createInitializationOptions();
-        PeerConnectionFactory.initialize(initializationOptions);
-
-        // Create JavaAudioDeviceModule for proper audio playout/record
-        JavaAudioDeviceModule audioDeviceModule;
         try {
-            audioDeviceModule = JavaAudioDeviceModule.builder(context)
-                    .setUseHardwareAcousticEchoCanceler(true)
-                    .setUseHardwareNoiseSuppressor(true)
-                    .createAudioDeviceModule();
-        } catch (Throwable t) {
-            Log.w("WebRtcClient", "Failed to create JavaAudioDeviceModule with hardware effects, falling back to default", t);
+            // Initialize PeerConnectionFactory
+            PeerConnectionFactory.InitializationOptions initializationOptions =
+                    PeerConnectionFactory.InitializationOptions.builder(context)
+                            .setEnableInternalTracer(true)
+                            .createInitializationOptions();
+            PeerConnectionFactory.initialize(initializationOptions);
+
+            // Create JavaAudioDeviceModule for proper audio playout/record
+            JavaAudioDeviceModule audioDeviceModule;
             try {
                 audioDeviceModule = JavaAudioDeviceModule.builder(context)
+                        .setUseHardwareAcousticEchoCanceler(true)
+                        .setUseHardwareNoiseSuppressor(true)
                         .createAudioDeviceModule();
-            } catch (Throwable t2) {
-                Log.e("WebRtcClient", "Failed to create any JavaAudioDeviceModule", t2);
-                audioDeviceModule = null;
+            } catch (Throwable t) {
+                Log.w("WebRtcClient", "Failed to create JavaAudioDeviceModule with hardware effects, falling back to default", t);
+                try {
+                    audioDeviceModule = JavaAudioDeviceModule.builder(context)
+                            .createAudioDeviceModule();
+                } catch (Throwable t2) {
+                    Log.e("WebRtcClient", "Failed to create any JavaAudioDeviceModule", t2);
+                    audioDeviceModule = null;
+                }
             }
+
+            // Create PeerConnectionFactory
+            PeerConnectionFactory.Options options = new PeerConnectionFactory.Options();
+            DefaultVideoEncoderFactory defaultVideoEncoderFactory = new DefaultVideoEncoderFactory(
+                    eglContext, true, true);
+            DefaultVideoDecoderFactory defaultVideoDecoderFactory = new DefaultVideoDecoderFactory(eglContext);
+
+            PeerConnectionFactory.Builder builder = PeerConnectionFactory.builder()
+                    .setOptions(options)
+                    .setVideoEncoderFactory(defaultVideoEncoderFactory)
+                    .setVideoDecoderFactory(defaultVideoDecoderFactory);
+
+            if (audioDeviceModule != null) {
+                builder.setAudioDeviceModule(audioDeviceModule);
+            }
+
+            factory = builder.createPeerConnectionFactory();
+        } catch (Throwable t) {
+            Log.e("WebRtcClient", "Failed to initialize PeerConnectionFactory", t);
         }
-
-        // Create PeerConnectionFactory
-        PeerConnectionFactory.Options options = new PeerConnectionFactory.Options();
-        DefaultVideoEncoderFactory defaultVideoEncoderFactory = new DefaultVideoEncoderFactory(
-                eglContext, true, true);
-        DefaultVideoDecoderFactory defaultVideoDecoderFactory = new DefaultVideoDecoderFactory(eglContext);
-
-        factory = PeerConnectionFactory.builder()
-                .setOptions(options)
-                .setAudioDeviceModule(audioDeviceModule)
-                .setVideoEncoderFactory(defaultVideoEncoderFactory)
-                .setVideoDecoderFactory(defaultVideoDecoderFactory)
-                .createPeerConnectionFactory();
     }
 
     public void startLocalVideoCapture(SurfaceViewRenderer localRenderer, EglBase.Context eglContext) {
@@ -196,19 +204,34 @@ public class WebRtcClient {
     }
 
     public void createOffer() {
-        if (peerConnection == null) return;
-        
-        MediaConstraints constraints = new MediaConstraints();
-        constraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"));
-        constraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"));
+        try {
+            if (peerConnection == null) return;
+            
+            MediaConstraints constraints = new MediaConstraints();
+            constraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"));
+            constraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"));
 
-        peerConnection.createOffer(new SimpleSdpObserver() {
-            @Override
-            public void onCreateSuccess(SessionDescription sessionDescription) {
-                peerConnection.setLocalDescription(new SimpleSdpObserver(), sessionDescription);
-                listener.onSdpGenerated(sessionDescription);
-            }
-        }, constraints);
+            peerConnection.createOffer(new SimpleSdpObserver() {
+                @Override
+                public void onCreateSuccess(SessionDescription sessionDescription) {
+                    try {
+                        if (peerConnection != null) {
+                            peerConnection.setLocalDescription(new SimpleSdpObserver(), sessionDescription);
+                        }
+                        listener.onSdpGenerated(sessionDescription);
+                    } catch (Throwable t) {
+                        Log.e("WebRtcClient", "Error in createOffer onCreateSuccess", t);
+                    }
+                }
+
+                @Override
+                public void onCreateFailure(String s) {
+                    Log.e("WebRtcClient", "createOffer onCreateFailure: " + s);
+                }
+            }, constraints);
+        } catch (Throwable t) {
+            Log.e("WebRtcClient", "Error in createOffer", t);
+        }
     }
 
     public void handleAnswer(SessionDescription sdp) {
