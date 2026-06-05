@@ -114,9 +114,9 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
                     break;
                 }
             }
-            if (!allGranted) {
-                Toast.makeText(this, "Permissions are required for Video Chat functionality", Toast.LENGTH_LONG).show();
-            }
+            // if (!allGranted) {
+            //     Toast.makeText(this, "Permissions are required for Video Chat functionality", Toast.LENGTH_LONG).show();
+            // }
         }
     }
 
