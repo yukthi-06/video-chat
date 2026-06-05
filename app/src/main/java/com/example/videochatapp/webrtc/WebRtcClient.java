@@ -196,6 +196,8 @@ public class WebRtcClient {
                 MediaStreamTrack track = rtpReceiver.track();
                 if (track instanceof VideoTrack) {
                     listener.onRemoteTrackAdded((VideoTrack) track);
+                } else if (track instanceof AudioTrack) {
+                    track.setEnabled(true);
                 }
             }
         });
@@ -291,6 +293,8 @@ public class WebRtcClient {
             }, sdp);
             
             MediaConstraints constraints = new MediaConstraints();
+            constraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveVideo", "true"));
+            constraints.mandatory.add(new MediaConstraints.KeyValuePair("OfferToReceiveAudio", "true"));
             peerConnection.createAnswer(new SimpleSdpObserver() {
                 @Override
                 public void onCreateSuccess(SessionDescription sessionDescription) {
