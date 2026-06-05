@@ -2,9 +2,17 @@ plugins {
     id 'com.android.application'
 }
 
+def gitSha = 'git rev-parse --short HEAD'.execute().text.trim()
+def gitShaFull = 'git rev-parse HEAD'.execute().text.trim()
+def gitTag = 'git describe        --tags'.execute().text.trim()
+
 android {
     namespace 'com.example.videochatapp'
     compileSdk 34
+
+    buildFeatures {
+        buildConfig true
+    }
 
     defaultConfig {
         applicationId "com.example.videochatapp"
@@ -14,7 +22,14 @@ android {
         versionName "1.0.0"
 
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+
+        // Inject Git info into BuildConfig
+        buildConfigField "String", "BUILD_TIMESTAMP", "\"${new Date().format('yyyyMMdd.HHmmss', TimeZone.getTimeZone('Asia/Kolkata'))}\""
+        buildConfigField "String", "GIT_SHA", "\"${gitSha}\""
+        buildConfigField "String", "GIT_SHA_FULL", "\"${gitShaFull}\""
+        buildConfigField "String", "GIT_TAG", "\"${gitTag}\""
     }
+
 
     buildTypes {
         release {
