@@ -10,7 +10,7 @@
         android:id="@+id/tv_welcome"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Welcome to VideoChatApp"
+        android:text="VideoChatApp"
         android:textSize="24sp"
         android:textStyle="bold"
         android:textColor="?attr/colorPrimary"
