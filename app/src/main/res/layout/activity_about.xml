@@ -29,31 +29,21 @@
         android:gravity="center_horizontal"
         app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
-        <!-- App Logo Placeholder -->
-        <com.google.android.material.card.MaterialCardView
+        <ImageView
             android:layout_width="96dp"
             android:layout_height="96dp"
-            app:cardCornerRadius="48dp"
-            app:cardElevation="4dp"
-            app:cardBackgroundColor="?attr/colorPrimaryContainer"
-            android:layout_marginTop="32dp"
-            android:layout_marginBottom="24dp">
-
-            <ImageView
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:layout_gravity="center"
-                android:src="@android:drawable/presence_video_online"
-                app:tint="?attr/colorOnPrimaryContainer" />
-        </com.google.android.material.card.MaterialCardView>
+            android:src="@mipmap/ic_launcher"
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="16dp" />
 
         <TextView
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="@string/app_name"
-            android:textSize="24sp"
             android:textStyle="bold"
-            android:textColor="?attr/colorOnSurface" />
+            android:textSize="24sp"
+            android:textColor="?attr/colorOnSurface"
+            android:layout_marginBottom="4dp" />
 
         <TextView
             android:layout_width="wrap_content"
@@ -61,31 +51,39 @@
             android:text="@string/app_version"
             android:textSize="14sp"
             android:textColor="?attr/colorOnSurfaceVariant"
-            android:layout_marginTop="4dp"
             android:layout_marginBottom="24dp" />
 
-        <com.google.android.material.divider.MaterialDivider
+        <TextView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:text="Credits"
+            android:textStyle="bold"
+            android:textSize="18sp"
+            android:textColor="?attr/colorOnSurface"
+            android:layout_marginBottom="8dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Developed by: Shibu Thittayil Narayanan\nLicense: GPL 3.0"
+            android:textColor="?attr/colorOnSurface"
             android:layout_marginBottom="24dp" />
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Build Information"
+            android:textStyle="bold"
+            android:textSize="18sp"
+            android:textColor="?attr/colorOnSurface"
+            android:layout_marginBottom="8dp" />
 
         <TextView
             android:id="@+id/tvBuildInfo"
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textSize="14sp"
             android:textColor="?attr/colorOnSurface"
-            android:gravity="center"
-            android:lineSpacingMultiplier="1.2"
-            android:layout_marginBottom="32dp" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/about_developer"
-            android:textSize="14sp"
-            android:textStyle="italic"
-            android:textColor="?attr/colorOnSurfaceVariant" />
+            android:text="" />
 
     </LinearLayout>
 
