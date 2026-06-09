@@ -19,7 +19,9 @@ public class WebRtcVideoRecorder implements VideoSink {
     private static final int IFRAME_INTERVAL = 2; // 2 seconds between keyframes
     private static final int BITRATE = 1500000; // 1.5 Mbps
 
-    private final String filePath;
+    private final String baseFilePath;
+    private final String fileExtension;
+    private int segmentIndex = 1;
     private final EglBase.Context sharedContext;
     private final boolean recordAudio;
     private int width;
@@ -63,7 +65,14 @@ public class WebRtcVideoRecorder implements VideoSink {
     }
 
     public WebRtcVideoRecorder(String filePath, EglBase.Context sharedContext, boolean recordAudio) {
-        this.filePath = filePath;
+        int dotIndex = filePath.lastIndexOf('.');
+        if (dotIndex != -1) {
+            this.baseFilePath = filePath.substring(0, dotIndex);
+            this.fileExtension = filePath.substring(dotIndex);
+        } else {
+            this.baseFilePath = filePath;
+            this.fileExtension = ".mp4";
+        }
         this.sharedContext = sharedContext;
         this.recordAudio = recordAudio;
     }
@@ -78,7 +87,8 @@ public class WebRtcVideoRecorder implements VideoSink {
     }
 
     private void startInternal() {
-        File file = new File(filePath);
+        String currentFilePath = baseFilePath + "_" + segmentIndex + fileExtension;
+        File file = new File(currentFilePath);
         File parentDir = file.getParentFile();
         if (parentDir != null && !parentDir.exists()) {
             boolean created = parentDir.mkdirs();
@@ -105,7 +115,7 @@ public class WebRtcVideoRecorder implements VideoSink {
             mediaCodec.start();
 
             // Configure MediaMuxer
-            mediaMuxer = new MediaMuxer(filePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
+            mediaMuxer = new MediaMuxer(currentFilePath, MediaMuxer.OutputFormat.MUXER_OUTPUT_MPEG_4);
 
             // Configure EglHelper to draw frames to MediaCodec's input surface
             try {
@@ -131,7 +141,7 @@ public class WebRtcVideoRecorder implements VideoSink {
                 audioEncoderThread.start();
             }
 
-            Log.d(TAG, "Video recorder started dynamically for: " + filePath + " (" + width + "x" + height + ")");
+            Log.d(TAG, "Video recorder started dynamically for: " + currentFilePath + " (" + width + "x" + height + ")");
         } catch (Throwable t) {
             Log.e(TAG, "Failed to initialize recorder", t);
             releaseCodec();
@@ -198,6 +208,25 @@ public class WebRtcVideoRecorder implements VideoSink {
                 firstVideoTimestampNs = frame.getTimestampNs();
             }
             long ptsNs = frame.getTimestampNs() - firstVideoTimestampNs;
+
+            // Cut segment at 60 seconds
+            if (ptsNs >= 60000000000L) {
+                // Swap buffers for this last frame of the current segment
+                recorderEglBase.swapBuffers(ptsNs);
+                
+                // Restore original EGL context to calling thread BEFORE splitting (split will release EGL base)
+                try {
+                    if (oldDisplay != android.opengl.EGL14.EGL_NO_DISPLAY && oldContext != android.opengl.EGL14.EGL_NO_CONTEXT) {
+                        android.opengl.EGL14.eglMakeCurrent(oldDisplay, oldDrawSurface, oldReadSurface, oldContext);
+                    }
+                } catch (Throwable t) {
+                    Log.e(TAG, "Error restoring EGL context before split", t);
+                }
+                
+                splitRecording();
+                return;
+            }
+
             recorderEglBase.swapBuffers(ptsNs);
         } catch (Throwable t) {
             Log.e(TAG, "Error rendering frame to encoder surface", t);
@@ -215,6 +244,36 @@ public class WebRtcVideoRecorder implements VideoSink {
                 Log.e(TAG, "Error restoring EGL context", t);
             }
         }
+    }
+
+    private synchronized void splitRecording() {
+        if (!isRecording) return;
+        Log.d(TAG, "60 seconds reached. Splitting recording to next segment.");
+
+        isRecording = false;
+
+        if (encoderThread != null) {
+            try {
+                encoderThread.join(2000);
+            } catch (InterruptedException e) {
+                Log.e(TAG, "Encoder thread join interrupted", e);
+            }
+            encoderThread = null;
+        }
+
+        if (audioEncoderThread != null) {
+            try {
+                audioEncoderThread.join(2000);
+            } catch (InterruptedException e) {
+                Log.e(TAG, "Audio encoder thread join interrupted", e);
+            }
+            audioEncoderThread = null;
+        }
+
+        releaseCodec();
+
+        segmentIndex++;
+        // Keep isStartRequested = true so the next frame restarts recording automatically
     }
 
     private void drainEncoder() {
@@ -408,7 +467,7 @@ public class WebRtcVideoRecorder implements VideoSink {
         }
 
         releaseCodec();
-        Log.d(TAG, "Video recorder stopped for: " + filePath);
+        Log.d(TAG, "Video recorder stopped for: " + (baseFilePath + "_" + segmentIndex + fileExtension));
     }
 
     private void releaseCodec() {
