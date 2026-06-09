@@ -32,7 +32,6 @@ public class WebRtcClient {
         void onIceCandidateGenerated(IceCandidate candidate);
         void onSdpGenerated(SessionDescription sdp);
         void onLocalAudioSample(byte[] data, int sampleRate, int channelCount);
-        void onRemoteAudioSample(byte[] data, int sampleRate, int channelCount);
     }
 
     public WebRtcClient(Context context, WebRtcListener listener, EglBase.Context eglContext) {
@@ -199,19 +198,6 @@ public class WebRtcClient {
                     listener.onRemoteTrackAdded((VideoTrack) track);
                 } else if (track instanceof AudioTrack) {
                     track.setEnabled(true);
-                    try {
-                        AudioTrack audioTrack = (AudioTrack) track;
-                        audioTrack.addSink(new AudioSink() {
-                            @Override
-                            public void onData(byte[] data, int bitsPerSample, int sampleRate, int numberOfChannels, int numberOfSamples) {
-                                if (listener != null) {
-                                    listener.onRemoteAudioSample(data, sampleRate, numberOfChannels);
-                                }
-                            }
-                        });
-                    } catch (Throwable t) {
-                        Log.e("WebRtcClient", "Error in AudioTrack addSink", t);
-                    }
                 }
             }
         });

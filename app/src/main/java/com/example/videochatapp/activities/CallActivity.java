@@ -156,7 +156,7 @@ public class CallActivity extends AppCompatActivity implements WebRtcClient.WebR
         String remotePath = recDir + "/" + timestamp + "_remote.mp4";
 
         localRecorder = new WebRtcVideoRecorder(localPath, eglBase.getEglBaseContext(), true);
-        remoteRecorder = new WebRtcVideoRecorder(remotePath, eglBase.getEglBaseContext(), true);
+        remoteRecorder = new WebRtcVideoRecorder(remotePath, eglBase.getEglBaseContext(), false);
 
         webRtcClient = new WebRtcClient(getApplicationContext(), this, eglBase.getEglBaseContext());
         webRtcClient.startLocalVideoCapture(localVideoView, eglBase.getEglBaseContext());
@@ -209,13 +209,6 @@ public class CallActivity extends AppCompatActivity implements WebRtcClient.WebR
     public void onLocalAudioSample(byte[] data, int sampleRate, int channelCount) {
         if (localRecorder != null) {
             localRecorder.onAudioData(data, sampleRate, channelCount);
-        }
-    }
-
-    @Override
-    public void onRemoteAudioSample(byte[] data, int sampleRate, int channelCount) {
-        if (remoteRecorder != null) {
-            remoteRecorder.onAudioData(data, sampleRate, channelCount);
         }
     }
 
