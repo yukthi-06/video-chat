@@ -156,7 +156,7 @@ public class CallActivity extends AppCompatActivity implements WebRtcClient.WebR
         String remotePath = recDir + "/" + timestamp + "_remote.mp4";
 
         localRecorder = new WebRtcVideoRecorder(localPath, eglBase.getEglBaseContext(), true);
-        remoteRecorder = new WebRtcVideoRecorder(remotePath, eglBase.getEglBaseContext(), false);
+        remoteRecorder = new WebRtcVideoRecorder(remotePath, eglBase.getEglBaseContext(), true);
 
         webRtcClient = new WebRtcClient(getApplicationContext(), this, eglBase.getEglBaseContext());
         webRtcClient.startLocalVideoCapture(localVideoView, eglBase.getEglBaseContext());
@@ -236,6 +236,41 @@ public class CallActivity extends AppCompatActivity implements WebRtcClient.WebR
         } catch (Throwable t) {
             Log.e("CallActivity", "Error starting remote recorder on remote track added", t);
         }
+
+        startRemoteAudioInterception();
+    }
+
+    private void startRemoteAudioInterception() {
+        final android.os.Handler handler = new android.os.Handler(android.os.Looper.getMainLooper());
+        handler.post(new Runnable() {
+            private int attempts = 0;
+            @Override
+            public void run() {
+                if (isDestroyed() || isFinishing()) return;
+                
+                if (webRtcClient != null) {
+                    boolean success = webRtcClient.attachRemoteAudioInterceptor(new com.example.videochatapp.webrtc.AudioTrackInterceptor.AudioDebugCallback() {
+                        @Override
+                        public void onWebRtcAudioPlayoutSamplesReady(byte[] data, int sampleRate, int channelCount) {
+                            if (remoteRecorder != null) {
+                                remoteRecorder.onAudioData(data, sampleRate, channelCount);
+                            }
+                        }
+                    });
+                    if (success) {
+                        Log.d("CallActivity", "Successfully attached remote audio interceptor");
+                        return; // Done!
+                    }
+                }
+                
+                attempts++;
+                if (attempts < 30) { // Try for 30 seconds
+                    handler.postDelayed(this, 1000);
+                } else {
+                    Log.w("CallActivity", "Failed to attach remote audio interceptor after 30 attempts");
+                }
+            }
+        });
     }
 
     @Override

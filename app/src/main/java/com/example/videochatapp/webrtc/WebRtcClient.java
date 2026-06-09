@@ -20,6 +20,7 @@ public class WebRtcClient {
     private AudioSource audioSource;
     private AudioTrack localAudioTrack;
     private SurfaceTextureHelper surfaceTextureHelper;
+    private JavaAudioDeviceModule audioDeviceModule;
 
     private final String STUN_SERVER = "stun:stun.l.google.com:19302";
     private final List<IceCandidate> queuedRemoteCandidates = new ArrayList<>();
@@ -50,7 +51,6 @@ public class WebRtcClient {
             PeerConnectionFactory.initialize(initializationOptions);
 
             // Create JavaAudioDeviceModule for proper audio playout/record
-            JavaAudioDeviceModule audioDeviceModule;
             JavaAudioDeviceModule.SamplesReadyCallback samplesCallback = samples -> {
                 if (listener != null) {
                     listener.onLocalAudioSample(samples.getData(), samples.getSampleRate(), samples.getChannelCount());
@@ -390,5 +390,10 @@ public class WebRtcClient {
 
         @Override
         public void onSetFailure(String s) {}
+    }
+
+    public boolean attachRemoteAudioInterceptor(com.example.videochatapp.webrtc.AudioTrackInterceptor.AudioDebugCallback callback) {
+        if (audioDeviceModule == null) return false;
+        return org.webrtc.audio.WebRtcAudioTrackUtils.attachOutputCallback(audioDeviceModule, callback);
     }
 }
