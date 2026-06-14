@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "VideoChatApp"
+rootProject.name = "Video Chat App"
 include ':app'
