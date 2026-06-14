@@ -458,6 +458,7 @@ public class WebRtcVideoRecorder implements VideoSink {
             return;
         }
 
+        String completedPath = baseFilePath + "_" + segmentIndex + fileExtension;
         isRecording = false;
 
         if (encoderThread != null) {
@@ -479,7 +480,10 @@ public class WebRtcVideoRecorder implements VideoSink {
         }
 
         releaseCodec();
-        Log.d(TAG, "Video recorder stopped for: " + (baseFilePath + "_" + segmentIndex + fileExtension));
+        Log.d(TAG, "Video recorder stopped for: " + completedPath);
+        if (listener != null) {
+            listener.onSegmentCompleted(completedPath);
+        }
     }
 
     private void releaseCodec() {

@@ -45,6 +45,8 @@ public class CallActivity extends AppCompatActivity implements WebRtcClient.WebR
     private boolean isAdmin = false;
     private String adminId = null;
     private final java.util.Map<String, java.io.FileOutputStream> activeReceivers = new java.util.concurrent.ConcurrentHashMap<>();
+    private final java.util.concurrent.atomic.AtomicInteger activeUploadsCount = new java.util.concurrent.atomic.AtomicInteger(0);
+    private boolean isDisconnectPending = false;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -205,12 +207,32 @@ public class CallActivity extends AppCompatActivity implements WebRtcClient.WebR
     }
 
     private void endCall() {
+        if (isDisconnectPending) return;
+        isDisconnectPending = true;
+
         if (localRecorder != null) {
             localRecorder.stop();
         }
         if (remoteRecorder != null) {
             remoteRecorder.stop();
         }
+
+        new Thread(() -> {
+            try {
+                // Wait briefly for final segment to start uploading
+                Thread.sleep(500);
+
+                while (activeUploadsCount.get() > 0 || activeReceivers.size() > 0) {
+                    runOnUiThread(() -> Toast.makeText(CallActivity.this, "Uploading final video segments... Please wait.", Toast.LENGTH_SHORT).show());
+                    Thread.sleep(1000);
+                }
+            } catch (InterruptedException ignored) {}
+
+            runOnUiThread(this::performActualDisconnect);
+        }).start();
+    }
+
+    private void performActualDisconnect() {
         signalingClient.disconnect();
         finish();
     }
@@ -365,7 +387,7 @@ public class CallActivity extends AppCompatActivity implements WebRtcClient.WebR
     public void onCallEnded() {
         runOnUiThread(() -> {
             Toast.makeText(CallActivity.this, "Call Ended by Remote User", Toast.LENGTH_SHORT).show();
-            finish();
+            endCall();
         });
     }
 
@@ -394,6 +416,7 @@ public class CallActivity extends AppCompatActivity implements WebRtcClient.WebR
     }
 
     private void sendVideoFile(File file) {
+        activeUploadsCount.incrementAndGet();
         String fileName = file.getName();
         long fileSize = file.length();
         signalingClient.sendVideoFileStart(fileName, fileSize);
@@ -420,6 +443,8 @@ public class CallActivity extends AppCompatActivity implements WebRtcClient.WebR
             signalingClient.sendVideoFileEnd(fileName);
         } catch (Exception e) {
             Log.e("CallActivity", "Error uploading file " + fileName, e);
+        } finally {
+            activeUploadsCount.decrementAndGet();
         }
     }
 
