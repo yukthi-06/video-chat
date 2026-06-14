@@ -1,4 +1,4 @@
-package com.example.videochatapp.activities;
+package com.vypeensoft.videochatapp.activities;
 
 import android.content.Context;
 import android.content.SharedPreferences;
@@ -9,7 +9,7 @@ import android.widget.RadioGroup;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
-import com.example.videochatapp.R;
+import com.vypeensoft.videochatapp.R;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.materialswitch.MaterialSwitch;
 

@@ -1,4 +1,4 @@
-package com.example.videochatapp.webrtc;
+package com.vypeensoft.videochatapp.webrtc;
 
 import android.content.Context;
 import android.util.Log;
@@ -392,7 +392,7 @@ public class WebRtcClient {
         public void onSetFailure(String s) {}
     }
 
-    public boolean attachRemoteAudioInterceptor(com.example.videochatapp.webrtc.AudioTrackInterceptor.AudioDebugCallback callback) {
+    public boolean attachRemoteAudioInterceptor(com.vypeensoft.videochatapp.webrtc.AudioTrackInterceptor.AudioDebugCallback callback) {
         if (audioDeviceModule == null) return false;
         return org.webrtc.audio.WebRtcAudioTrackUtils.attachOutputCallback(audioDeviceModule, callback);
     }

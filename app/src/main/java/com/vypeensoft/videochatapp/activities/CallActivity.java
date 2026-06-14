@@ -1,4 +1,4 @@
-package com.example.videochatapp.activities;
+package com.vypeensoft.videochatapp.activities;
 
 import android.content.Context;
 import android.media.AudioManager;
@@ -6,10 +6,10 @@ import android.os.Bundle;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.appcompat.app.AppCompatActivity;
-import com.example.videochatapp.R;
-import com.example.videochatapp.webrtc.SignalingClient;
-import com.example.videochatapp.webrtc.WebRtcClient;
-import com.example.videochatapp.webrtc.WebRtcVideoRecorder;
+import com.vypeensoft.videochatapp.R;
+import com.vypeensoft.videochatapp.webrtc.SignalingClient;
+import com.vypeensoft.videochatapp.webrtc.WebRtcClient;
+import com.vypeensoft.videochatapp.webrtc.WebRtcVideoRecorder;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import org.webrtc.*;
 import android.util.Log;
@@ -249,7 +249,7 @@ public class CallActivity extends AppCompatActivity implements WebRtcClient.WebR
                 if (isDestroyed() || isFinishing()) return;
                 
                 if (webRtcClient != null) {
-                    boolean success = webRtcClient.attachRemoteAudioInterceptor(new com.example.videochatapp.webrtc.AudioTrackInterceptor.AudioDebugCallback() {
+                    boolean success = webRtcClient.attachRemoteAudioInterceptor(new com.vypeensoft.videochatapp.webrtc.AudioTrackInterceptor.AudioDebugCallback() {
                         @Override
                         public void onWebRtcAudioPlayoutSamplesReady(byte[] data, int sampleRate, int channelCount) {
                             if (remoteRecorder != null) {

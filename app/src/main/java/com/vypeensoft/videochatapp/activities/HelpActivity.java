@@ -1,10 +1,10 @@
-package com.example.videochatapp.activities;
+package com.vypeensoft.videochatapp.activities;
 
 import android.os.Bundle;
 import android.view.MenuItem;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
-import com.example.videochatapp.R;
+import com.vypeensoft.videochatapp.R;
 import com.google.android.material.appbar.MaterialToolbar;
 
 public class HelpActivity extends AppCompatActivity {

@@ -1,4 +1,4 @@
-package com.example.videochatapp.fragments;
+package com.vypeensoft.videochatapp.fragments;
 
 import android.content.Intent;
 import android.os.Bundle;
@@ -9,8 +9,8 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
-import com.example.videochatapp.R;
-import com.example.videochatapp.activities.CallActivity;
+import com.vypeensoft.videochatapp.R;
+import com.vypeensoft.videochatapp.activities.CallActivity;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.textfield.TextInputEditText;
 import java.util.UUID;

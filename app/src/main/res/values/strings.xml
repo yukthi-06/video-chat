@@ -29,4 +29,13 @@
     <string name="about_description">Video Chat App is a basic Android video calling application built with WebRTC. It demonstrates peer-to-peer real-time communication on mobile devices.</string>
     <string name="about_developer">Developed by: Developer Placeholder</string>
     <string name="app_version">Version 1.0.0</string>
+
+    <!-- Admin Mode Screen -->
+    <string name="title_admin_mode">Admin Mode</string>
+    <string name="admin_password_hint">Enter Admin Password</string>
+    <string name="admin_btn_submit">Submit</string>
+    <string name="admin_status_regular">Status: Regular User</string>
+    <string name="admin_status_admin">Status: Admin</string>
+    <string name="admin_toast_success">Success! You are now an Admin.</string>
+    <string name="admin_toast_wrong">Incorrect password.</string>
 </resources>

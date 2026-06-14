@@ -2,7 +2,7 @@ package org.webrtc.audio;
 
 import android.media.AudioTrack;
 import android.util.Log;
-import com.example.videochatapp.webrtc.AudioTrackInterceptor;
+import com.vypeensoft.videochatapp.webrtc.AudioTrackInterceptor;
 import java.lang.reflect.Field;
 
 public abstract class WebRtcAudioTrackUtils {

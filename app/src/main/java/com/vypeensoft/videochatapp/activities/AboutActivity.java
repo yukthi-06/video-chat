@@ -1,12 +1,12 @@
-package com.example.videochatapp.activities;
+package com.vypeensoft.videochatapp.activities;
 
 import android.os.Bundle;
 import android.view.MenuItem;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
 import android.widget.TextView;
-import com.example.videochatapp.R;
-import com.example.videochatapp.BuildConfig;
+import com.vypeensoft.videochatapp.R;
+import com.vypeensoft.videochatapp.BuildConfig;
 
 public class AboutActivity extends AppCompatActivity {
     @Override

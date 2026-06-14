@@ -1,4 +1,4 @@
-package com.example.videochatapp.activities;
+package com.vypeensoft.videochatapp.activities;
 
 import android.Manifest;
 import android.content.Intent;
@@ -17,12 +17,12 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.view.GravityCompat;
 import androidx.drawerlayout.widget.DrawerLayout;
-import com.example.videochatapp.R;
-import com.example.videochatapp.fragments.HomeFragment;
+import com.vypeensoft.videochatapp.R;
+import com.vypeensoft.videochatapp.fragments.HomeFragment;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.navigation.NavigationView;
 
-import com.example.videochatapp.webrtc.CrashLogger;
+import com.vypeensoft.videochatapp.webrtc.CrashLogger;
 
 public class MainActivity extends AppCompatActivity implements NavigationView.OnNavigationItemSelectedListener {
 
@@ -135,6 +135,8 @@ public class MainActivity extends AppCompatActivity implements NavigationView.On
             startActivity(new Intent(this, HelpActivity.class));
         } else if (id == R.id.nav_about) {
             startActivity(new Intent(this, AboutActivity.class));
+        } else if (id == R.id.nav_admin_mode) {
+            startActivity(new Intent(this, AdminModeActivity.class));
         }
 
         drawerLayout.closeDrawer(GravityCompat.START);

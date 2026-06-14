@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
-    package="com.example.videochatapp">
+    package="com.vypeensoft.videochatapp">
 
     <!-- Permissions Required -->
     <uses-permission android:name="android.permission.INTERNET" />
@@ -57,6 +57,12 @@
         <activity
             android:name=".activities.AboutActivity"
             android:exported="false" />
+
+        <!-- Admin Mode Activity -->
+        <activity
+            android:name=".activities.AdminModeActivity"
+            android:exported="false"
+            android:screenOrientation="portrait" />
 
     </application>
 
