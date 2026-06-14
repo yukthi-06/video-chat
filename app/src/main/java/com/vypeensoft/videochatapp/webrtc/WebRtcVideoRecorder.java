@@ -27,6 +27,11 @@ public class WebRtcVideoRecorder implements VideoSink {
         this.listener = listener;
     }
 
+    private long segmentDurationNs = 60000000000L; // Default 60 seconds
+    public void setSegmentDurationSeconds(int seconds) {
+        this.segmentDurationNs = seconds * 1000000000L;
+    }
+
     private final String baseFilePath;
     private final String fileExtension;
     private int segmentIndex = 1;
@@ -217,8 +222,8 @@ public class WebRtcVideoRecorder implements VideoSink {
             }
             long ptsNs = frame.getTimestampNs() - firstVideoTimestampNs;
 
-            // Cut segment at 60 seconds
-            if (ptsNs >= 60000000000L) {
+            // Cut segment at configured duration
+            if (ptsNs >= segmentDurationNs) {
                 // Swap buffers for this last frame of the current segment
                 recorderEglBase.swapBuffers(ptsNs);
                 

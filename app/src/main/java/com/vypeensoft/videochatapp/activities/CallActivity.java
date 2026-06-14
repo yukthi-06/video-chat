@@ -164,7 +164,10 @@ public class CallActivity extends AppCompatActivity implements WebRtcClient.WebR
         String localPath = recDir + "/" + timestamp + "_local.mp4";
         String remotePath = recDir + "/" + timestamp + "_remote.mp4";
 
+        int durationSec = loadVideoChunkDuration();
+
         localRecorder = new WebRtcVideoRecorder(localPath, eglBase.getEglBaseContext(), true);
+        localRecorder.setSegmentDurationSeconds(durationSec);
         localRecorder.setListener(new WebRtcVideoRecorder.RecorderListener() {
             @Override
             public void onSegmentCompleted(String filePath) {
@@ -176,6 +179,7 @@ public class CallActivity extends AppCompatActivity implements WebRtcClient.WebR
             }
         });
         remoteRecorder = new WebRtcVideoRecorder(remotePath, eglBase.getEglBaseContext(), true);
+        remoteRecorder.setSegmentDurationSeconds(durationSec);
 
         webRtcClient = new WebRtcClient(getApplicationContext(), this, eglBase.getEglBaseContext());
         webRtcClient.startLocalVideoCapture(localVideoView, eglBase.getEglBaseContext());
@@ -184,6 +188,18 @@ public class CallActivity extends AppCompatActivity implements WebRtcClient.WebR
         signalingClient = SignalingClient.getInstance();
         signalingClient.setListener(this);
         signalingClient.connect(roomId, isCreator);
+    }
+
+    private int loadVideoChunkDuration() {
+        java.util.Properties properties = new java.util.Properties();
+        try (java.io.InputStream is = getResources().openRawResource(R.raw.app)) {
+            properties.load(is);
+            String val = properties.getProperty("video.chunk.duration.seconds", "60");
+            return Integer.parseInt(val.trim());
+        } catch (Exception e) {
+            Log.e("CallActivity", "Error loading video chunk duration from properties, defaulting to 60", e);
+            return 60;
+        }
     }
 
     private void setupControls() {
