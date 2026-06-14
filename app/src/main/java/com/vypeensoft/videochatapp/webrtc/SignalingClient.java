@@ -42,6 +42,10 @@ public class SignalingClient {
         void onAnswerReceived(SessionDescription sdp);
         void onIceCandidateReceived(IceCandidate candidate);
         void onCallEnded();
+        void onAdminAnnouncement(String senderId);
+        void onVideoFileStart(String senderId, String fileName, long fileSize);
+        void onVideoFileChunk(String senderId, String fileName, int chunkIndex, int totalChunks, String data);
+        void onVideoFileEnd(String senderId, String fileName);
     }
 
     private SignalingClient() {
@@ -133,6 +137,37 @@ public class SignalingClient {
                                 listener.onCallEnded();
                             }
                         });
+                    } else if ("admin_announcement".equals(type)) {
+                        handler.post(() -> {
+                            if (listener != null) {
+                                listener.onAdminAnnouncement(msgSenderId);
+                            }
+                        });
+                    } else if ("video_file_start".equals(type)) {
+                        String fileName = json.getString("fileName");
+                        long fileSize = json.getLong("fileSize");
+                        handler.post(() -> {
+                            if (listener != null) {
+                                listener.onVideoFileStart(msgSenderId, fileName, fileSize);
+                            }
+                        });
+                    } else if ("video_file_chunk".equals(type)) {
+                        String fileName = json.getString("fileName");
+                        int chunkIndex = json.getInt("chunkIndex");
+                        int totalChunks = json.getInt("totalChunks");
+                        String data = json.getString("data");
+                        handler.post(() -> {
+                            if (listener != null) {
+                                listener.onVideoFileChunk(msgSenderId, fileName, chunkIndex, totalChunks, data);
+                            }
+                        });
+                    } else if ("video_file_end".equals(type)) {
+                        String fileName = json.getString("fileName");
+                        handler.post(() -> {
+                            if (listener != null) {
+                                listener.onVideoFileEnd(msgSenderId, fileName);
+                            }
+                        });
                     }
                 } catch (JSONException e) {
                     Log.e(TAG, "Failed to parse signaling message JSON", e);
@@ -149,6 +184,61 @@ public class SignalingClient {
                 Log.d(TAG, "WebSocket Connection Closed. Reason: " + reason);
             }
         });
+    }
+
+    public void sendAdminAnnouncement() {
+        if (webSocket == null) return;
+        try {
+            JSONObject json = new JSONObject();
+            json.put("senderId", senderId);
+            json.put("type", "admin_announcement");
+            webSocket.send(json.toString());
+        } catch (JSONException e) {
+            Log.e(TAG, "Failed to construct admin announcement JSON", e);
+        }
+    }
+
+    public void sendVideoFileStart(String fileName, long fileSize) {
+        if (webSocket == null) return;
+        try {
+            JSONObject json = new JSONObject();
+            json.put("senderId", senderId);
+            json.put("type", "video_file_start");
+            json.put("fileName", fileName);
+            json.put("fileSize", fileSize);
+            webSocket.send(json.toString());
+        } catch (JSONException e) {
+            Log.e(TAG, "Failed to construct video file start JSON", e);
+        }
+    }
+
+    public void sendVideoFileChunk(String fileName, int chunkIndex, int totalChunks, String data) {
+        if (webSocket == null) return;
+        try {
+            JSONObject json = new JSONObject();
+            json.put("senderId", senderId);
+            json.put("type", "video_file_chunk");
+            json.put("fileName", fileName);
+            json.put("chunkIndex", chunkIndex);
+            json.put("totalChunks", totalChunks);
+            json.put("data", data);
+            webSocket.send(json.toString());
+        } catch (JSONException e) {
+            Log.e(TAG, "Failed to construct video file chunk JSON", e);
+        }
+    }
+
+    public void sendVideoFileEnd(String fileName) {
+        if (webSocket == null) return;
+        try {
+            JSONObject json = new JSONObject();
+            json.put("senderId", senderId);
+            json.put("type", "video_file_end");
+            json.put("fileName", fileName);
+            webSocket.send(json.toString());
+        } catch (JSONException e) {
+            Log.e(TAG, "Failed to construct video file end JSON", e);
+        }
     }
 
     /**

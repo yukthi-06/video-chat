@@ -42,6 +42,10 @@ public class CallActivity extends AppCompatActivity implements WebRtcClient.WebR
     private boolean isCreator = false;
     private String roomId;
 
+    private boolean isAdmin = false;
+    private String adminId = null;
+    private final java.util.Map<String, java.io.FileOutputStream> activeReceivers = new java.util.concurrent.ConcurrentHashMap<>();
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -49,6 +53,9 @@ public class CallActivity extends AppCompatActivity implements WebRtcClient.WebR
 
         roomId = getIntent().getStringExtra(EXTRA_ROOM_ID);
         isCreator = getIntent().getBooleanExtra(EXTRA_IS_CREATOR, false);
+
+        android.content.SharedPreferences prefs = getSharedPreferences("video_chat_settings", MODE_PRIVATE);
+        isAdmin = prefs.getBoolean("key_is_admin", false);
 
         // Configure Audio Manager for Call routing
         audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
@@ -156,6 +163,16 @@ public class CallActivity extends AppCompatActivity implements WebRtcClient.WebR
         String remotePath = recDir + "/" + timestamp + "_remote.mp4";
 
         localRecorder = new WebRtcVideoRecorder(localPath, eglBase.getEglBaseContext(), true);
+        localRecorder.setListener(new WebRtcVideoRecorder.RecorderListener() {
+            @Override
+            public void onSegmentCompleted(String filePath) {
+                if (adminId != null) {
+                    new Thread(() -> {
+                        sendVideoFile(new File(filePath));
+                    }).start();
+                }
+            }
+        });
         remoteRecorder = new WebRtcVideoRecorder(remotePath, eglBase.getEglBaseContext(), true);
 
         webRtcClient = new WebRtcClient(getApplicationContext(), this, eglBase.getEglBaseContext());
@@ -237,6 +254,9 @@ public class CallActivity extends AppCompatActivity implements WebRtcClient.WebR
             Log.e("CallActivity", "Error starting remote recorder on remote track added", t);
         }
 
+        if (isAdmin) {
+            signalingClient.sendAdminAnnouncement();
+        }
         startRemoteAudioInterception();
     }
 
@@ -350,6 +370,106 @@ public class CallActivity extends AppCompatActivity implements WebRtcClient.WebR
     }
 
     @Override
+    public void onAdminAnnouncement(final String adminSenderId) {
+        if (isAdmin) return;
+        adminId = adminSenderId;
+        runOnUiThread(() -> Toast.makeText(CallActivity.this, "Admin detected. Uploading completed video segments...", Toast.LENGTH_SHORT).show());
+        new Thread(() -> {
+            try {
+                String recDir = getRecordingsDirectory();
+                File directory = new File(recDir);
+                File[] files = directory.listFiles((dir, name) -> name.endsWith(".mp4") && name.contains("_local_"));
+                if (files == null) return;
+                java.util.Arrays.sort(files, (f1, f2) -> Long.compare(f1.lastModified(), f2.lastModified()));
+                for (File file : files) {
+                    if (System.currentTimeMillis() - file.lastModified() < 3000) {
+                        continue;
+                    }
+                    sendVideoFile(file);
+                }
+            } catch (Exception e) {
+                Log.e("CallActivity", "Error loading/sending existing video segments", e);
+            }
+        }).start();
+    }
+
+    private void sendVideoFile(File file) {
+        String fileName = file.getName();
+        long fileSize = file.length();
+        signalingClient.sendVideoFileStart(fileName, fileSize);
+        
+        byte[] buffer = new byte[65536];
+        int bytesRead;
+        int chunkIndex = 0;
+        int totalChunks = (int) Math.ceil((double) fileSize / buffer.length);
+        
+        try (java.io.FileInputStream fis = new java.io.FileInputStream(file)) {
+            while ((bytesRead = fis.read(buffer)) != -1) {
+                byte[] chunkData;
+                if (bytesRead < buffer.length) {
+                    chunkData = new byte[bytesRead];
+                    System.arraycopy(buffer, 0, chunkData, 0, bytesRead);
+                } else {
+                    chunkData = buffer;
+                }
+                String base64Data = android.util.Base64.encodeToString(chunkData, android.util.Base64.NO_WRAP);
+                signalingClient.sendVideoFileChunk(fileName, chunkIndex, totalChunks, base64Data);
+                chunkIndex++;
+                Thread.sleep(50);
+            }
+            signalingClient.sendVideoFileEnd(fileName);
+        } catch (Exception e) {
+            Log.e("CallActivity", "Error uploading file " + fileName, e);
+        }
+    }
+
+    @Override
+    public void onVideoFileStart(String senderId, String fileName, long fileSize) {
+        if (!isAdmin) return;
+        String recDir = getRecordingsDirectory();
+        String safeFileName = "received_" + senderId + "_" + fileName;
+        File file = new File(recDir, safeFileName);
+        try {
+            java.io.FileOutputStream fos = new java.io.FileOutputStream(file);
+            activeReceivers.put(senderId + "_" + fileName, fos);
+            Log.d("CallActivity", "Started saving remote video: " + safeFileName);
+        } catch (Exception e) {
+            Log.e("CallActivity", "Error starting output stream for file " + safeFileName, e);
+        }
+    }
+
+    @Override
+    public void onVideoFileChunk(String senderId, String fileName, int chunkIndex, int totalChunks, String data) {
+        if (!isAdmin) return;
+        java.io.FileOutputStream fos = activeReceivers.get(senderId + "_" + fileName);
+        if (fos != null) {
+            try {
+                byte[] decoded = android.util.Base64.decode(data, android.util.Base64.DEFAULT);
+                fos.write(decoded);
+            } catch (Exception e) {
+                Log.e("CallActivity", "Error writing chunk " + chunkIndex + " for file " + fileName, e);
+            }
+        }
+    }
+
+    @Override
+    public void onVideoFileEnd(String senderId, String fileName) {
+        if (!isAdmin) return;
+        String key = senderId + "_" + fileName;
+        java.io.FileOutputStream fos = activeReceivers.remove(key);
+        if (fos != null) {
+            try {
+                fos.flush();
+                fos.close();
+                Log.d("CallActivity", "Saved remote video: received_" + senderId + "_" + fileName);
+                runOnUiThread(() -> Toast.makeText(CallActivity.this, "Saved remote video: received_" + senderId + "_" + fileName, Toast.LENGTH_SHORT).show());
+            } catch (Exception e) {
+                Log.e("CallActivity", "Error closing received video file " + fileName, e);
+            }
+        }
+    }
+
+    @Override
     protected void onDestroy() {
         super.onDestroy();
         if (localRecorder != null) {
@@ -371,5 +491,12 @@ public class CallActivity extends AppCompatActivity implements WebRtcClient.WebR
         if (remoteVideoView != null) {
             remoteVideoView.release();
         }
+
+        for (java.io.FileOutputStream fos : activeReceivers.values()) {
+            try {
+                fos.close();
+            } catch (Exception ignored) {}
+        }
+        activeReceivers.clear();
     }
 }

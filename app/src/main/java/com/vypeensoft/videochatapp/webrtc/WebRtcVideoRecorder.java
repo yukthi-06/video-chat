@@ -19,6 +19,14 @@ public class WebRtcVideoRecorder implements VideoSink {
     private static final int IFRAME_INTERVAL = 2; // 2 seconds between keyframes
     private static final int BITRATE = 1500000; // 1.5 Mbps
 
+    public interface RecorderListener {
+        void onSegmentCompleted(String filePath);
+    }
+    private RecorderListener listener;
+    public void setListener(RecorderListener listener) {
+        this.listener = listener;
+    }
+
     private final String baseFilePath;
     private final String fileExtension;
     private int segmentIndex = 1;
@@ -249,6 +257,7 @@ public class WebRtcVideoRecorder implements VideoSink {
     private synchronized void splitRecording() {
         if (!isRecording) return;
         Log.d(TAG, "60 seconds reached. Splitting recording to next segment.");
+        String completedPath = baseFilePath + "_" + segmentIndex + fileExtension;
 
         isRecording = false;
 
@@ -273,6 +282,9 @@ public class WebRtcVideoRecorder implements VideoSink {
         releaseCodec();
 
         segmentIndex++;
+        if (listener != null) {
+            listener.onSegmentCompleted(completedPath);
+        }
         // Keep isStartRequested = true so the next frame restarts recording automatically
     }
 
